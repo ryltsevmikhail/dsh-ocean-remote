@@ -125,6 +125,8 @@ export interface HostAuthorizationControl {
   peerTrustStatus?(): PeerTrustView
   approvePeer?(action: ApprovePeerAction): Promise<TrustedPeer>
   rejectPeer?(action: PeerApprovalAction): void | Promise<void>
+  /** Local operator action that removes a pin and closes a live session with it. */
+  revokePeer?(deviceId: string): Promise<boolean>
   invalidatePeerApprovals?(): Promise<void>
   setAgentBackends?(config: ResolvedConfig): Promise<void>
   setTerminalEnabled?(enabled: boolean): void

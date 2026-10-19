@@ -352,7 +352,7 @@ window.__ModuleLoader__.load({
       // option, and the selected remote target must not become an approver.
       const trustLifetime = new AbortController()
       ctx.effect(() => () => trustLifetime.abort(), 'ds-harness-remote: local trust HTTP')
-      const localTrustControl = async <T,>(endpoint: 'trust.status' | 'trust.approve' | 'trust.reject', payload: unknown, signal?: AbortSignal): Promise<T> => {
+      const localTrustControl = async <T,>(endpoint: 'trust.status' | 'trust.approve' | 'trust.reject' | 'trust.revoke', payload: unknown, signal?: AbortSignal): Promise<T> => {
         if (typeof originalPluginFetch !== 'function') throw new Error('Локальный HTTP недоступен.')
         const url = new URL(`${CONTROL_RPC_PREFIX}/${endpoint}`, window.location.origin)
         const response = await originalPluginFetch.call(window, url.href, {

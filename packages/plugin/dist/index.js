@@ -30271,6 +30271,21 @@ var ClientModeRuntime = class {
   rejectPeer(action) {
     this.requirePeerApprovals().reject(action);
   }
+  /** Local operator action: drop a pinned Host and any live session with it. */
+  async revokePeer(deviceId) {
+    if (!this.started || this.closed) {
+      throw Object.assign(new Error("Peer trust is unavailable while the runtime is stopped."), { code: "PEER_APPROVAL_UNAVAILABLE" });
+    }
+    await this.invalidatePeerApprovals();
+    try {
+      if (this.connected?.target.deviceId === deviceId) await this.leaveRemote();
+      const revoked = await this.identities.revokePeer(deviceId);
+      if (revoked) this.pendingWorkspaceSelection = void 0;
+      return revoked;
+    } finally {
+      this.renewPeerApprovals();
+    }
+  }
   requirePeerApprovals() {
     if (!this.started || this.closed || this.peerApprovals === void 0) {
       throw Object.assign(new Error("Peer approval authority is unavailable."), { code: "PEER_APPROVAL_UNAVAILABLE" });
@@ -38423,7 +38438,7 @@ var PluginControlRuntime = class {
       "client.account.qr.start",
       "client.account.qr.poll"
     ].includes(endpoint);
-    if (this.authorityTransition && (transition || endpoint === "trust.approve" || endpoint === "trust.reject")) {
+    if (this.authorityTransition && (transition || endpoint === "trust.approve" || endpoint === "trust.reject" || endpoint === "trust.revoke")) {
       return fail4(new ClientModeError(endpoint === "settings.server.set" ? "SERVER_SWITCH_BUSY" : "AUTHORITY_BUSY", "An account or runtime transition is already in progress."));
     }
     if (transition) this.authorityTransition = true;
@@ -38440,6 +38455,19 @@ var PluginControlRuntime = class {
       }
       if (endpoint !== "settings.server.set") await this.serverSwitchFlight;
       if (endpoint === "trust.status") return ok3(this.trustView(authority?.localApproval === true));
+      if (endpoint === "trust.revoke") {
+        if (authority?.localApproval !== true) {
+          throw new ClientModeError("LOCAL_APPROVAL_REQUIRED", "Peer trust changes are available only through authenticated local HTTP.");
+        }
+        const value = record7(payload);
+        if (value.role !== "host" && value.role !== "client" || typeof value.deviceId !== "string" || value.deviceId.length === 0) {
+          throw new ClientModeError("INVALID_MESSAGE", "Role and device are required.");
+        }
+        const target2 = value.role === "host" ? this.host : this.client;
+        if (target2?.revokePeer === void 0) throw new ClientModeError("PEER_APPROVAL_UNAVAILABLE", "The current peer trust authority is unavailable.");
+        const revoked = await target2.revokePeer(value.deviceId);
+        return ok3({ revoked });
+      }
       if (endpoint === "trust.approve" || endpoint === "trust.reject") {
         const value = record7(payload);
         if (value.role !== "host" && value.role !== "client" || typeof value.deviceId !== "string" || typeof value.generation !== "string") {

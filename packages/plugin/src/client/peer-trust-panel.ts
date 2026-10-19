@@ -83,6 +83,28 @@ export function createPeerTrustPanel(React: ClientReact) {
         if (!signal.aborted) { locked.current = false; setBusy(false) }
       }
     }
+    // Removing a pin is irreversible for that peer: confirm before calling the local endpoint.
+    const revoke = async (role: 'host' | 'client', deviceId: string, name: string): Promise<void> => {
+      const signal = lifetime.current?.signal
+      if (!signal || signal.aborted || locked.current || !props.localTrustControl || status?.localApproval !== true) return
+      if (typeof window !== 'undefined' && typeof window.confirm === 'function'
+        && !window.confirm(`Снять доверие с устройства ${name}? Следующее подключение потребует нового подтверждения ключа.`)) return
+      locked.current = true
+      setBusy(true)
+      setError('')
+      try {
+        await props.localTrustControl('trust.revoke', { role, deviceId }, signal)
+      } catch {
+        if (!signal.aborted) setError('Не удалось снять доверие. Обновите состояние и повторите.')
+      } finally {
+        if (!signal.aborted) {
+          try { await refresh(signal) }
+          catch { if (!signal.aborted) { setStatus(undefined); setError('Не удалось обновить состояние доверия. Обновите вручную.') } }
+        }
+        if (!signal.aborted) { locked.current = false; setBusy(false) }
+      }
+    }
+
     const writable = !!props.localTrustControl && status?.localApproval === true
     return h('section', { className: 'dshRemoteSettings', 'aria-label': 'Доверие устройствам' },
       h('h3', null, 'Доверие устройствам — SHA-256'),
@@ -125,7 +147,12 @@ export function createPeerTrustPanel(React: ClientReact) {
           ...(validView?.trusted ?? []).map(pin => h('div', { key: pin.deviceId },
             h('p', null, pin.name, ' — Device ID: ', pin.deviceId, '; платформа: ', pin.platform),
             h('code', { style: { overflowWrap: 'anywhere' } }, pin.fullFingerprint),
-            h('p', null, pin.provenance === 'manual' ? 'Подтверждён вручную.' : 'Legacy: происхождение подтверждения неизвестно; не считается ручным подтверждением.'))))
+            h('p', null, pin.provenance === 'manual' ? 'Подтверждён вручную.' : 'Legacy: происхождение подтверждения неизвестно; не считается ручным подтверждением.'),
+            h('button', {
+              type: 'button', disabled: busy || !writable || validView?.role !== role,
+              'aria-label': `Снять доверие: ${role} ${pin.deviceId}`,
+              onClick: () => void revoke(role, pin.deviceId, pin.name),
+            }, 'Снять доверие'))))
       }))
   }
 }

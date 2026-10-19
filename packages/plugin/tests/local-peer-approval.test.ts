@@ -15,6 +15,7 @@ function fixture(role: 'host' | 'client') {
   const peers = new Map<string, TrustedPeer>()
   const store = {
     trustedPeer: (id: string) => peers.get(id),
+    revokePeer: vi.fn(async (id: string) => peers.delete(id)),
     trustPeer: vi.fn(async (input: Omit<TrustedPeer, 'fingerprint' | 'trustedAt'>) => {
       const peer: TrustedPeer = { ...input, fingerprint: fingerprint(input.publicKey), trustedAt: Date.now(), provenance: 'manual' }
       peers.set(peer.deviceId, peer)
@@ -25,7 +26,7 @@ function fixture(role: 'host' | 'client') {
   const pending = queue.request({ deviceId: 'candidate', name: 'Candidate', platform: 'linux', publicKey: generateKeyPair().publicKey })!
   const facade = {
     peerTrustStatus: () => ({ role, epochId: 'current-entry', available: true, pending: queue.list(), trusted: [] }),
-    approvePeer: queue.approve.bind(queue), rejectPeer: queue.reject.bind(queue),
+    approvePeer: queue.approve.bind(queue), rejectPeer: queue.reject.bind(queue), revokePeer: store.revokePeer,
   }
   const runtime = new PluginControlRuntime(resolveConfig({ enabled: true, role, serverUrl: 'https://relay.example.test', codex: { enabled: false }, acp: { enabled: false } }),
     '/unused-test-directory', undefined,
@@ -43,7 +44,7 @@ describe('manual peer approval local carrier boundary', () => {
     const dispose = f.runtime.register(connection)
     cleanup.push(dispose)
     const payload = { role, deviceId: f.pending.deviceId, generation: f.pending.generation, fullFingerprint: f.pending.fullFingerprint, localApproval: true }
-    for (const method of ['trust.approve', 'trust.reject']) {
+    for (const method of ['trust.approve', 'trust.reject', 'trust.revoke']) {
       const result = await handler(method, payload, new AbortController().signal, { localApproval: true })
       expect(result).toMatchObject({ ok: false, error: { details: { remoteCode: 'LOCAL_APPROVAL_REQUIRED' } } })
     }
@@ -63,12 +64,12 @@ describe('manual peer approval local carrier boundary', () => {
     await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
     cleanup.push(() => new Promise(resolve => { server.closeAllConnections(); server.close(() => resolve()) }))
     const port = (server.address() as { port: number }).port
-    const send = (payload: unknown, origin = `http://127.0.0.1:${port}`) => new Promise<{ result: { ok: boolean } }>((resolve, reject) => {
-      const req = request({ hostname: '127.0.0.1', port, path: '/ds-harness-remote/trust.approve', method: 'POST',
+    const send = (payload: unknown, origin = `http://127.0.0.1:${port}`, endpoint = 'trust.approve') => new Promise<{ result: { ok: boolean } }>((resolve, reject) => {
+      const req = request({ hostname: '127.0.0.1', port, path: `/ds-harness-remote/${endpoint}`, method: 'POST',
         headers: { cookie: 'local-owner', origin, 'content-type': 'application/json' } }, response => {
         let body = ''; response.setEncoding('utf8'); response.on('data', data => { body += data }); response.on('end', () => resolve(JSON.parse(body)))
       })
-      req.on('error', reject); req.end(JSON.stringify(wire('trust.approve', payload)))
+      req.on('error', reject); req.end(JSON.stringify(wire(endpoint, payload)))
     })
     const action = { role, deviceId: f.pending.deviceId, generation: f.pending.generation, fullFingerprint: f.pending.fullFingerprint }
     expect((await send(action, 'http://untrusted.example')).result.ok).toBe(false)
@@ -79,6 +80,11 @@ describe('manual peer approval local carrier boundary', () => {
     expect((await send(action)).result.ok).toBe(true)
     expect(f.store.trustPeer).toHaveBeenCalledOnce()
     expect(f.peers.get(action.deviceId)?.provenance).toBe('manual')
+    // Removing a pin goes through the same local-only authority and drops the key.
+    expect((await send({ role, deviceId: action.deviceId }, `http://127.0.0.1:${port}`, 'trust.revoke')).result.ok).toBe(true)
+    expect(f.store.revokePeer).toHaveBeenCalledWith(action.deviceId)
+    expect(f.peers.has(action.deviceId)).toBe(false)
+    // A consumed candidate cannot be approved a second time.
     expect((await send(action)).result.ok).toBe(false)
   })
 })

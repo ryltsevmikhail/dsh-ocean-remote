@@ -110,6 +110,22 @@ export class ClientModeRuntime {
 
   rejectPeer(action: PeerApprovalAction): void { this.requirePeerApprovals().reject(action) }
 
+  /** Local operator action: drop a pinned Host and any live session with it. */
+  async revokePeer(deviceId: string): Promise<boolean> {
+    if (!this.started || this.closed) {
+      throw Object.assign(new Error('Peer trust is unavailable while the runtime is stopped.'), { code: 'PEER_APPROVAL_UNAVAILABLE' })
+    }
+    await this.invalidatePeerApprovals()
+    try {
+      if (this.connected?.target.deviceId === deviceId) await this.leaveRemote()
+      const revoked = await this.identities.revokePeer(deviceId)
+      if (revoked) this.pendingWorkspaceSelection = undefined
+      return revoked
+    } finally {
+      this.renewPeerApprovals()
+    }
+  }
+
   private requirePeerApprovals(): PeerApprovalQueue {
     if (!this.started || this.closed || this.peerApprovals === undefined) {
       throw Object.assign(new Error('Peer approval authority is unavailable.'), { code: 'PEER_APPROVAL_UNAVAILABLE' })

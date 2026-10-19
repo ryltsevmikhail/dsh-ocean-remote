@@ -1672,6 +1672,8 @@ Minimum version required to store current data is: ` + bestVersion + `.
     roleHost: "Host (this machine serves)",
     roleClient: "Client (this machine connects)",
     roleHint: "Changing the role replaces the Remote runtime for the selected Server; unsaved drafts are discarded.",
+    revokeTrust: "\u0421\u043D\u044F\u0442\u044C \u0434\u043E\u0432\u0435\u0440\u0438\u0435",
+    revokeTrustConfirm: "\u0421\u043D\u044F\u0442\u044C \u0434\u043E\u0432\u0435\u0440\u0438\u0435 \u0441 \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0430 {name}? \u0421\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0435 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435 \u043F\u043E\u0442\u0440\u0435\u0431\u0443\u0435\u0442 \u043D\u043E\u0432\u043E\u0433\u043E \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u044F \u043A\u043B\u044E\u0447\u0430.",
     layerAccountOk: "Account: signed in",
     layerAccountRequired: "Account: sign-in required",
     layerTrustOk: "Key: trusted",
@@ -1966,6 +1968,8 @@ Minimum version required to store current data is: ` + bestVersion + `.
     roleHost: "Host\uFF08\u672C\u673A\u63D0\u4F9B\u670D\u52A1\uFF09",
     roleClient: "Client\uFF08\u672C\u673A\u8FDE\u63A5\uFF09",
     roleHint: "\u5207\u6362\u89D2\u8272\u4F1A\u66FF\u6362\u6240\u9009 Server \u7684 Remote \u8FD0\u884C\u65F6\uFF0C\u672A\u4FDD\u5B58\u7684\u8349\u7A3F\u4F1A\u88AB\u4E22\u5F03\u3002",
+    revokeTrust: "\u79FB\u9664\u4FE1\u4EFB",
+    revokeTrustConfirm: "\u786E\u5B9A\u79FB\u9664\u8BBE\u5907 {name} \u7684\u4FE1\u4EFB\uFF1F\u4E0B\u6B21\u8FDE\u63A5\u9700\u8981\u91CD\u65B0\u786E\u8BA4\u5BC6\u94A5\u3002",
     layerAccountOk: "\u8D26\u53F7\uFF1A\u5DF2\u767B\u5F55",
     layerAccountRequired: "\u8D26\u53F7\uFF1A\u9700\u8981\u767B\u5F55",
     layerTrustOk: "\u5BC6\u94A5\uFF1A\u5DF2\u4FE1\u4EFB",
@@ -2698,6 +2702,24 @@ Minimum version required to store current data is: ` + bestVersion + `.
             signal.aborted || (locked.current = !1, setBusy(!1));
           }
         }
+      }, revoke = async (role, deviceId, name) => {
+        let signal = lifetime.current?.signal;
+        if (!(!signal || signal.aborted || locked.current || !props.localTrustControl || status?.localApproval !== !0) && !(typeof window < "u" && typeof window.confirm == "function" && !window.confirm(`\u0421\u043D\u044F\u0442\u044C \u0434\u043E\u0432\u0435\u0440\u0438\u0435 \u0441 \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0430 ${name}? \u0421\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0435 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435 \u043F\u043E\u0442\u0440\u0435\u0431\u0443\u0435\u0442 \u043D\u043E\u0432\u043E\u0433\u043E \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u044F \u043A\u043B\u044E\u0447\u0430.`))) {
+          locked.current = !0, setBusy(!0), setError("");
+          try {
+            await props.localTrustControl("trust.revoke", { role, deviceId }, signal);
+          } catch {
+            signal.aborted || setError("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043D\u044F\u0442\u044C \u0434\u043E\u0432\u0435\u0440\u0438\u0435. \u041E\u0431\u043D\u043E\u0432\u0438\u0442\u0435 \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u0435 \u0438 \u043F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u0435.");
+          } finally {
+            if (!signal.aborted)
+              try {
+                await refresh(signal);
+              } catch {
+                signal.aborted || (setStatus(void 0), setError("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u0435 \u0434\u043E\u0432\u0435\u0440\u0438\u044F. \u041E\u0431\u043D\u043E\u0432\u0438\u0442\u0435 \u0432\u0440\u0443\u0447\u043D\u0443\u044E."));
+              }
+            signal.aborted || (locked.current = !1, setBusy(!1));
+          }
+        }
       }, writable = !!props.localTrustControl && status?.localApproval === !0;
       return h(
         "section",
@@ -2749,7 +2771,13 @@ Minimum version required to store current data is: ` + bestVersion + `.
               { key: pin.deviceId },
               h("p", null, pin.name, " \u2014 Device ID: ", pin.deviceId, "; \u043F\u043B\u0430\u0442\u0444\u043E\u0440\u043C\u0430: ", pin.platform),
               h("code", { style: { overflowWrap: "anywhere" } }, pin.fullFingerprint),
-              h("p", null, pin.provenance === "manual" ? "\u041F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0451\u043D \u0432\u0440\u0443\u0447\u043D\u0443\u044E." : "Legacy: \u043F\u0440\u043E\u0438\u0441\u0445\u043E\u0436\u0434\u0435\u043D\u0438\u0435 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u044F \u043D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u043E; \u043D\u0435 \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u0440\u0443\u0447\u043D\u044B\u043C \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u0435\u043C.")
+              h("p", null, pin.provenance === "manual" ? "\u041F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0451\u043D \u0432\u0440\u0443\u0447\u043D\u0443\u044E." : "Legacy: \u043F\u0440\u043E\u0438\u0441\u0445\u043E\u0436\u0434\u0435\u043D\u0438\u0435 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u044F \u043D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u043E; \u043D\u0435 \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u0440\u0443\u0447\u043D\u044B\u043C \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u0435\u043C."),
+              h("button", {
+                type: "button",
+                disabled: busy || !writable || validView?.role !== role,
+                "aria-label": `\u0421\u043D\u044F\u0442\u044C \u0434\u043E\u0432\u0435\u0440\u0438\u0435: ${role} ${pin.deviceId}`,
+                onClick: () => void revoke(role, pin.deviceId, pin.name)
+              }, "\u0421\u043D\u044F\u0442\u044C \u0434\u043E\u0432\u0435\u0440\u0438\u0435")
             ))
           );
         })

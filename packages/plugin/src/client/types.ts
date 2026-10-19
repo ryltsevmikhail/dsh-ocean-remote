@@ -8,7 +8,7 @@ export interface PeerTrustStatus {
 }
 
 /** Must use local HTTP only; never fall back to native RPC. */
-export type LocalTrustControl = <T>(endpoint: 'trust.status' | 'trust.approve' | 'trust.reject', payload: unknown, signal?: AbortSignal) => Promise<T>
+export type LocalTrustControl = <T>(endpoint: 'trust.status' | 'trust.approve' | 'trust.reject' | 'trust.revoke', payload: unknown, signal?: AbortSignal) => Promise<T>
 
 export interface ControlResult<T = unknown> {
   ok: boolean

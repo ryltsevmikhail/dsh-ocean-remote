@@ -89,7 +89,7 @@ export class PluginControlRuntime {
   private async handle(endpoint: string, payload: unknown, signal: AbortSignal, authority?: ControlInvocationAuthority): Promise<RpcResult<unknown>> {
     const transition = ['settings.configure', 'settings.server.set', 'settings.role.set', 'settings.logout', 'host.authorization.set',
       'host.account.login', 'host.registration-code.submit', 'client.account.login', 'client.account.qr.start', 'client.account.qr.poll'].includes(endpoint)
-    if (this.authorityTransition && (transition || endpoint === 'trust.approve' || endpoint === 'trust.reject')) {
+    if (this.authorityTransition && (transition || endpoint === 'trust.approve' || endpoint === 'trust.reject' || endpoint === 'trust.revoke')) {
       return fail(new ClientModeError(endpoint === 'settings.server.set' ? 'SERVER_SWITCH_BUSY' : 'AUTHORITY_BUSY', 'An account or runtime transition is already in progress.'))
     }
     if (transition) this.authorityTransition = true
@@ -105,6 +105,21 @@ export class PluginControlRuntime {
       // A request arriving during replacement must use the new Server runtime.
       if (endpoint !== 'settings.server.set') await this.serverSwitchFlight
       if (endpoint === 'trust.status') return ok(this.trustView(authority?.localApproval === true))
+      if (endpoint === 'trust.revoke') {
+        // Same local-only authority as approve/reject: a remote peer must not be able
+        // to drop the operator's pins through the encrypted channel.
+        if (authority?.localApproval !== true) {
+          throw new ClientModeError('LOCAL_APPROVAL_REQUIRED', 'Peer trust changes are available only through authenticated local HTTP.')
+        }
+        const value = record(payload)
+        if ((value.role !== 'host' && value.role !== 'client') || typeof value.deviceId !== 'string' || value.deviceId.length === 0) {
+          throw new ClientModeError('INVALID_MESSAGE', 'Role and device are required.')
+        }
+        const target = value.role === 'host' ? this.host : this.client
+        if (target?.revokePeer === undefined) throw new ClientModeError('PEER_APPROVAL_UNAVAILABLE', 'The current peer trust authority is unavailable.')
+        const revoked = await target.revokePeer(value.deviceId)
+        return ok({ revoked })
+      }
       if (endpoint === 'trust.approve' || endpoint === 'trust.reject') {
         const value = record(payload)
         if ((value.role !== 'host' && value.role !== 'client') || typeof value.deviceId !== 'string' || typeof value.generation !== 'string') {
