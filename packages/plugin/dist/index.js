@@ -29685,6 +29685,7 @@ var ClientModeRuntime = class {
   assertHostAuthorizationForDeviceDiscovery() {
     const status2 = this.host?.hostStatus();
     if (status2 === void 0 || status2.error === void 0 || !HOST_AUTHORIZATION_ERRORS.has(status2.error)) return;
+    if (this.config.role === "client" && this.config.hostControl?.enabled === false && status2.authorized === false && status2.error === "ACCOUNT_AUTH_REQUIRED" && status2.accountRequired === true) return;
     const message = status2.error === "DEVICE_REVOKED" ? "The local Host was revoked on the Server. Sign out and authorize this Host again." : "The local Host authorization is no longer valid. Sign out and authorize this Host again.";
     throw new ClientModeError(status2.error, message);
   }

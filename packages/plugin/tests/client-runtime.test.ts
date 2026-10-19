@@ -1315,11 +1315,59 @@ describe('ClientModeRuntime Host account control', () => {
     await runtime.close()
   })
 
+  it.each([true, false])('keeps Client device discovery authentication with Host control explicitly disabled (Client authorized: %s)', async (clientAuthorized) => {
+    const directory = await mkdtemp(join(tmpdir(), 'dsh-client-host-opt-out-'))
+    directories.push(directory)
+    const clientAuthError = { code: 'ACCOUNT_AUTH_REQUIRED' }
+    const listDevices = vi.fn(async () => {
+      if (!clientAuthorized) throw clientAuthError
+      return []
+    })
+    const host = {
+      hostStatus: vi.fn(() => ({
+        configured: true,
+        online: false,
+        reconnecting: false,
+        error: 'ACCOUNT_AUTH_REQUIRED',
+        authorized: false,
+        accountRequired: true,
+      })),
+      authorizeHostAsOwned: vi.fn(),
+    } as unknown as HostAuthorizationControl
+    const runtime = new ClientModeRuntime(
+      { ...config(), role: 'client', hostControl: { enabled: false } },
+      new IdentityStore({ directory }),
+      { bindIdentity: vi.fn(), listDevices } as unknown as ClientServerApi,
+      apiProxy(),
+      gateway(),
+      logger(),
+      host,
+    )
+    await runtime.start()
+
+    if (clientAuthorized) {
+      await expect(runtime.devices()).resolves.toEqual([])
+    } else {
+      await expect(runtime.devices()).rejects.toBe(clientAuthError)
+    }
+    expect(listDevices).toHaveBeenCalledOnce()
+    expect(host.authorizeHostAsOwned).not.toHaveBeenCalled()
+    await runtime.close()
+  })
+
   it('requires local Host authorization before listing devices', async () => {
-    const rows = ['DEVICE_REVOKED', 'AUTH_INVALID', 'TOKEN_EXPIRED'] as const
+    const rows = (['DEVICE_REVOKED', 'AUTH_INVALID', 'TOKEN_EXPIRED', 'ACCOUNT_AUTH_REQUIRED'] as const)
+      .flatMap(error => (['client', 'host', 'both'] as const).flatMap(role =>
+        [undefined, true, false].flatMap(enabled => [true, false].map(authorized => ({
+          error, role, enabled, authorized, accountRequired: true,
+        }))),
+      ))
+      .filter(row => !(row.error === 'ACCOUNT_AUTH_REQUIRED' && row.role === 'client'
+        && row.enabled === false && row.authorized === false))
+    rows.push({ error: 'ACCOUNT_AUTH_REQUIRED', role: 'client', enabled: false, authorized: false, accountRequired: false })
     await runScenarios(
       rows.map((row, index) => {
-        const error = row
+        const { error, role, enabled, authorized, accountRequired } = row
         return {
           name: scenarioName('does not list devices when the local Host authorization is %s', row, index),
           run: async () => {
@@ -1332,12 +1380,12 @@ describe('ClientModeRuntime Host account control', () => {
                 online: false,
                 reconnecting: false,
                 error,
-                authorized: true,
-                accountRequired: true,
+                authorized,
+                accountRequired,
               })),
             } as unknown as HostAuthorizationControl
             const runtime = new ClientModeRuntime(
-              config(),
+              { ...config(), role, ...(enabled === undefined ? {} : { hostControl: { enabled } }) },
               new IdentityStore({ directory }),
               { bindIdentity: vi.fn(), listDevices } as unknown as ClientServerApi,
               apiProxy(),

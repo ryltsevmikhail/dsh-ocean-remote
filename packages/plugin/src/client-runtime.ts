@@ -298,6 +298,14 @@ export class ClientModeRuntime {
   private assertHostAuthorizationForDeviceDiscovery(): void {
     const status = this.host?.hostStatus()
     if (status === undefined || status.error === undefined || !HOST_AUTHORIZATION_ERRORS.has(status.error)) return
+    // An explicit pure Client may discover peers without current local Host
+    // credentials. This is current-state policy, not historical revocation proof;
+    // explicit revoked/invalid/expired Host statuses remain blocked.
+    if (this.config.role === 'client'
+      && this.config.hostControl?.enabled === false
+      && status.authorized === false
+      && status.error === 'ACCOUNT_AUTH_REQUIRED'
+      && status.accountRequired === true) return
     const message = status.error === 'DEVICE_REVOKED'
       ? 'The local Host was revoked on the Server. Sign out and authorize this Host again.'
       : 'The local Host authorization is no longer valid. Sign out and authorize this Host again.'
