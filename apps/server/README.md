@@ -77,7 +77,7 @@ Tests: `pnpm --filter @dsh-remote/server test`. Cross-machine and long-running v
 
 ## Release Tag checks
 
-A release tag must match the versions in the root `package.json` and `packages/plugin/package.json`, for example `v0.4.15`. The Tag workflow runs workspace checks, tests, builds, npm plugin packing, browser-extension packaging, and SHA256 checksums; the Server image is built from the same tag.
+A release tag must match the versions in the root `package.json` and `packages/plugin/package.json` (currently `0.5.13`), for example `v0.5.13`. The Tag workflow runs workspace checks, tests, builds, npm plugin packing, browser-extension packaging, and SHA256 checksums; the Server image is built from the same tag.
 
 Run the checks locally before creating a tag:
 

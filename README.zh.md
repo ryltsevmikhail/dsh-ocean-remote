@@ -1,3 +1,9 @@
+# DSH Ocean Remote — 分支版本
+
+> **这是分支版本，不是上游包。** npm 包 `ds-harness-remote`、托管服务 `dsh.r2049.cn`、Android/iOS 客户端和 P2P/TURN 中转均属于原项目，**不是**本构建。本版本没有默认服务器。
+>
+> 本文件其余内容为上游文档（其中少量标注「本分支」的说明除外），仅供参考，可能描述本分支不存在的功能（QR/OAuth 登录、Android/iOS、P2P/TURN、托管服务器、上游 SDK 基线）。权威文档为俄语：[README](README.md)、[审计](docs/audit/README.md)、[安装](docs/fork-install.ru.md)。
+
 <p align="center">
 
   <img src="docs/logo.svg" alt="DeepSeek Harness Remote" width="600">
@@ -10,7 +16,7 @@
   &nbsp;·&nbsp;
   <a href="docs/README.md">文档</a>
   &nbsp;·&nbsp;
-  <a href="https://dsh.r2049.cn/app">Web</a>
+  <a href="https://dsh.r2049.cn/app">Web（上游）</a>
   &nbsp;·&nbsp;
   <a href="https://github.com/liguobao/ds-harness-remote/releases/latest">Android</a>
   &nbsp;·&nbsp;
@@ -47,7 +53,7 @@ DS Harness Remote 只是通往这个工作环境的另一个窗口。
 - 已支持 DeepSeek Harness 桌面版，安装即可使用。
 - 可将纯终端 [dsh-TUI](https://github.com/ccch1mneyyy/dsh-TUI) profile 作为 Host
 - Harness 主机无需开放公网监听端口，无需公网IP，可以从任意可上网的地方，通过双向端到端加密链路安全连接。
-- 优先使用P2P网络，全球多TURN节点中转，极端情况下使用Server Relay确保可用。
+- 本分支为 **仅 Relay**：自建服务器不提供 P2P/TURN。下方关于 LAN/P2P/TURN 的描述属于原项目。
 - 通过 Harness 原生侧栏提供工作区文件、只读预览、远程终端和已授权本机开发服务预览。
 - CodeX / ACP 终端使用 Host 默认 shell，在会话目录启动，并在重连时恢复终端屏幕。
 
@@ -102,14 +108,14 @@ dsh plugin --profile web add -w ds-harness-remote@0.5.13
 ## 快速开始
 
 1. 从 Harness 侧边栏打开 **Remote** 入口。
-2. 使用服务端提供的 OAuth 扫码登录方式，或使用账号密码登录。提供商列表动态获取，新增服务端集成无需再次发布插件。
+2. *（上游步骤——本分支没有 OAuth 扫码登录，请使用账号密码。）*
 3. Host 启动后默认允许控制当前机器，远程终端也默认开启；需要时可在详细 Remote 设置中关闭远程终端。
 4. 在另一台设备上打开 DeepSeek Harness 桌面版、Remote Web 或 Android 客户端，并登录同一账号。
 5. 选择在线 Host，再选择已有 Workspace 或浏览远端目录后打开。
 
-默认使用本项目提供的[https://dsh.r2049.cn](https://dsh.r2049.cn)托管 Remote Server。
+本分支**没有默认服务器**，不使用原项目的托管服务；请按[安装说明](docs/fork-install.ru.md)配置自己的服务器。
 
-自建托管Server可使用仓库内的[最小 Server](apps/server/README.zh.md)，其 Web 页面仅提供设备状态。
+自建方式：[Tailscale](docs/tailnet-ocean.ru.md) 或[公网域名](docs/self-host-ocean.ru.md)。
 
 ## 界面截图
 
@@ -226,7 +232,7 @@ OAuth 登录方式由服务端动态提供。使用 `ds-harness-remote login lis
 - [开发进度与路线图](docs/TODO.md)
 - [更新记录](docs/CHANGELOG.md)
 - [隐私说明](docs/PRIVACY.md)
-- 当前开发适配基线为 `dsh-v0.2.1-rc.1`，验证范围见[兼容性说明](docs/compatibility.zh.md)。
+- （上游信息）当前开发适配基线为 `dsh-v0.2.1-rc.1`；本分支实际验证的是 DSH 0.2.0-rc.2，见[审计](docs/audit/README.md)。
 
 ## 友情链接
 

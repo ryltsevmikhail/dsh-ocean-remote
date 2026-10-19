@@ -1,3 +1,9 @@
+# DSH Ocean Remote — fork
+
+> **This is a fork, not the upstream package.** The npm package `ds-harness-remote`, the hosted server `dsh.r2049.cn`, the Android/iOS clients and the P2P/TURN relay belong to the original project and are **not** this build. There is no default server: configure your own.
+>
+> Everything below is upstream documentation kept for reference, except the few fork notes marked "this fork". It may describe features this fork does not have (QR/OAuth sign-in, Android/iOS, P2P/TURN, hosted server, upstream SDK baseline). Authoritative documents are in Russian: [README](README.md), [audit](docs/audit/README.md), [install](docs/fork-install.ru.md).
+
 <p align="center">
 
   <img src="docs/logo.svg" alt="DeepSeek Harness Remote" width="600">
@@ -10,7 +16,7 @@
   &nbsp;·&nbsp;
   <a href="docs/README.md">Documentation</a>
   &nbsp;·&nbsp;
-  <a href="https://dsh.r2049.cn/app">Web</a>
+  <a href="https://dsh.r2049.cn/app">Web (upstream)</a>
   &nbsp;·&nbsp;
   <a href="https://github.com/liguobao/ds-harness-remote/releases/latest">Android</a>
   &nbsp;·&nbsp;
@@ -45,7 +51,7 @@ The DeepSeek Harness desktop edition is supported. Install the latest release:
 - Support DeepSeek Harness Desktop, ready to use after installation.
 - Run a terminal-only [dsh-TUI](https://github.com/ccch1mneyyy/dsh-TUI) profile as a Host.
 - No public listening port or public IP is required on the Harness Host. Connect from anywhere with internet access over a bidirectional end-to-end encrypted channel.
-- Prefer P2P connections, use TURN relay nodes worldwide, and fall back to Server Relay when needed.
+- This fork is **Relay-only**: P2P and TURN are not available on its own Server. The upstream text below about LAN/P2P/TURN describes the original project.
 - Access workspace files, read-only previews, remote terminals, and authorized local development-service previews through the native Harness sidebar.
 - CodeX and ACP terminals use the Host's default shell in the session directory and restore the terminal screen on reconnect.
 
@@ -89,7 +95,7 @@ The sole installer is `scripts/install.sh`:
 
 See the [installation guide](docs/installation.md) for private token input, updates, service controls and validation limits. Repository changes do not automatically deploy the hosted installer.
 
-### Android client
+### Android client *(upstream — not adapted in this fork)*
 
 Download the latest APK from [GitHub Releases](https://github.com/liguobao/ds-harness-remote/releases/latest), sign in to the same account, and select a Host and workspace to continue your conversation.
 
@@ -100,14 +106,14 @@ Download the latest APK from [GitHub Releases](https://github.com/liguobao/ds-ha
 ## Quick start
 
 1. Open **Remote** from the Harness sidebar.
-2. Sign in with a GitHub or Zhihu QR code, or use your account and password.
+2. *(Upstream step — this fork has no QR/OAuth sign-in; use account and password.)*
 3. The Host starts with control of the current computer enabled. Remote terminal access is also enabled by default; you can turn it off in the detailed Remote settings.
 4. On another device, open the DeepSeek Harness desktop edition, Remote Web, or the Android client and sign in to the same account.
 5. Select the online Host, then choose an existing workspace or browse remote directories to open one.
 
-By default, Remote uses this project's hosted Server at [https://dsh.r2049.cn](https://dsh.r2049.cn).
+This fork has **no default Server**. The hosted Server of the original project is not used; configure your own as described in [the install guide](docs/fork-install.ru.md).
 
-For self-hosting, use the repository's [minimal Server](apps/server/README.md); its Web page shows device status only.
+Self-hosting options: [Tailscale](docs/tailnet-ocean.ru.md) or [public domain](docs/self-host-ocean.ru.md).
 
 ## Screenshots
 
@@ -222,7 +228,7 @@ OAuth sign-in methods are loaded from the Server. Use `ds-harness-remote login l
 - [Development status and roadmap](docs/TODO.md)
 - [Changelog](docs/CHANGELOG.md)
 - [Privacy policy](docs/PRIVACY.md)
-- The current development baseline is `dsh-v0.2.1-rc.1`; validation scope is documented in [the compatibility guide](docs/compatibility.md).
+- (Upstream) The original project targets `dsh-v0.2.1-rc.1`; this fork was only verified with DSH 0.2.0-rc.2, see [the audit](docs/audit/README.md).
 
 ## Links
 

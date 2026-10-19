@@ -1,3 +1,5 @@
+> **不适用于本分支。** 本文档继承自上游，安装上游 npm 包并访问托管服务 `dsh.r2049.cn`。本分支请参阅[安装说明](fork-install.ru.md)。
+
 # Remote 插件安装指南
 
 [English](installation.md)
