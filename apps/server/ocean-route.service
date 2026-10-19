@@ -1,0 +1,29 @@
+[Unit]
+Description=Optional scoped Ocean Tailscale IPv4 transport route
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+RuntimeDirectory=dsh-ocean-route
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+UMask=0077
+ExecStart=/usr/bin/python3 -I /usr/local/libexec/dsh-ocean-route.py
+ExecStopPost=/usr/bin/python3 -I /usr/local/libexec/dsh-ocean-route.py --remove
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=90
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+CapabilityBoundingSet=CAP_NET_ADMIN
+AmbientCapabilities=CAP_NET_ADMIN
+ReadWritePaths=/run/dsh-ocean-route
+
+[Install]
+WantedBy=multi-user.target
