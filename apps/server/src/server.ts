@@ -81,10 +81,10 @@ export function createRemoteServer(config: Config) {
   async function route(req: IncomingMessage, res: ServerResponse) {
     const path = new URL(req.url ?? '/', url).pathname
     const method = req.method
-    if (req.headers.origin && req.headers.origin !== url.origin) throw new ApiError('AUTH_INVALID', 403)
-    if (req.headers['sec-fetch-site'] === 'cross-site') throw new ApiError('AUTH_INVALID', 403)
-    const staticAsset = path.startsWith('/assets/') || ['/icon.png', '/brand-whale.webp', '/landing-atmosphere.webp'].includes(path)
-    if (method === 'GET' && (['/', '/app', '/app/login'].includes(path) || staticAsset)) {
+    // Public HTML/assets contain no account data. Cross-site navigation to the
+    // console is safe; keep Origin/Fetch-Metadata checks on all API requests.
+    const staticAsset = path.startsWith('/assets/')
+    if (method === 'GET' && (['/', '/app', '/app/login', '/app/remote'].includes(path) || staticAsset)) {
       const name = staticAsset ? path.slice(1) : 'index.html'
       const asset = assets.get(name)
       if (!asset) throw new ApiError('METHOD_NOT_FOUND', 404)
@@ -92,6 +92,8 @@ export function createRemoteServer(config: Config) {
       res.setHeader('Content-Type', contentType)
       res.end(asset); return
     }
+    if (req.headers.origin && req.headers.origin !== url.origin) throw new ApiError('AUTH_INVALID', 403)
+    if (req.headers['sec-fetch-site'] === 'cross-site') throw new ApiError('AUTH_INVALID', 403)
     if (method === 'GET' && (path === '/health' || path === '/healthz' || path === '/ready')) { json(res, 200, { status: 'ok' }); return }
     rate(`api:${req.socket.remoteAddress ?? ''}`, 240)
     if (method === 'POST' && path === '/api/v1/auth/login') {

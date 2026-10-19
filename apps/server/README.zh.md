@@ -2,11 +2,11 @@
 
 [English](README.md) · **中文**
 
-单账号 Remote 中继，环境变量配置账号密码，Web 提供首页、登录和设备状态页。Server 不包含在 Host 插件 bundle 中，需要单独部署。
+单账号 Remote 中继，环境变量配置账号密码。Ocean 使用重新编写的最小俄语登录和设备状态界面，不再使用原先借用的组件、样式或图片。Server 不包含在 Host 插件 bundle 中，需要单独部署。
 
 ## 自部署页面
 
-首页地址是 `/`，点击“开始使用”进入登录页；登录成功后进入 `/app/remote` 设备列表。Host 和客户端都填写同一个 Server 地址，并使用相同的账号密码登录。设备凭据由 Server 保存，Web 登录会话使用 HttpOnly Cookie。
+`/`、`/app/login` 和 `/app/remote` 打开同一个控制台，内容由 Cookie 登录状态决定；登录成功后地址变为 `/app/remote`。Host 和客户端都填写同一个 Server 地址，并使用相同的账号密码登录。设备凭据由 Server 保存，Web 登录会话使用 HttpOnly Cookie。
 
 ## Docker 部署
 

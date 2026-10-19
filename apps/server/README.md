@@ -2,13 +2,13 @@
 
 **English** · [中文](README.zh.md)
 
-A single-account Remote relay with credentials configured through environment variables. Its Web UI includes a landing page, sign-in, and device status page. The Server is deployed separately from the Host plugin bundle.
+A single-account Remote relay with credentials configured through environment variables. Ocean provides an independently authored, minimal Russian sign-in and device-status console. The Server is deployed separately from the Host plugin bundle.
 
 ## Self-hosted Web flow
 
-The `/` landing page links to `/app/login`; a successful sign-in continues to `/app/remote`. Point both Host and Client at the same Server URL and use the same account and password. Device credentials are persisted by the Server, while Web sessions use an HttpOnly cookie.
+The `/`, `/app/login`, and `/app/remote` routes open the same console; its content is determined by the authenticated Cookie session. A successful sign-in updates the URL to `/app/remote`. Point both Host and Client at the same Server URL and use the same account and password. Device credentials are persisted by the Server, while Web sessions use an HttpOnly cookie.
 
-Ocean fork: see the [Russian self-hosting guide](../../docs/self-host-ocean.ru.md) for a standalone HTTPS/Caddy Compose configuration. It does not change the plugin's default server address. UI provenance review remains open before image distribution.
+Ocean fork: see the [Russian self-hosting guide](../../docs/self-host-ocean.ru.md) for a standalone HTTPS/Caddy Compose configuration. The Ocean plugin has no default server address. The previously borrowed server UI and images have been replaced; see [provenance](web/UPSTREAM.md). Dependency/artifact licensing review is still separate.
 
 ## Docker deployment
 

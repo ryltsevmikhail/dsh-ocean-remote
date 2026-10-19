@@ -136,6 +136,7 @@ describe('account and device authorization', () => {
     const cookie = login.headers.get('set-cookie')!.split(';')[0]!
     expect(login.headers.get('set-cookie')).toContain('HttpOnly')
     expect((await request('/account/devices', 'GET', undefined, undefined, { Cookie: cookie })).status).toBe(200)
+    expect((await request('/account/devices', 'GET', undefined, undefined, { Cookie: cookie, 'Sec-Fetch-Site': 'cross-site' })).status).toBe(403)
     await request('/auth/logout', 'POST', {}, undefined, { Cookie: cookie })
     expect((await request('/auth/me', 'GET', undefined, login.data.token)).status).toBe(401)
   })
