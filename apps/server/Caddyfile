@@ -1,0 +1,4 @@
+{$DSH_REMOTE_DOMAIN} {
+	# Caddy handles WebSocket Upgrade; do not enable request/access logging.
+	reverse_proxy server:8080
+}

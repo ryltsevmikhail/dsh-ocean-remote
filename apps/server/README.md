@@ -8,6 +8,8 @@ A single-account Remote relay with credentials configured through environment va
 
 The `/` landing page links to `/app/login`; a successful sign-in continues to `/app/remote`. Point both Host and Client at the same Server URL and use the same account and password. Device credentials are persisted by the Server, while Web sessions use an HttpOnly cookie.
 
+Ocean fork: see the [Russian self-hosting guide](../../docs/self-host-ocean.ru.md) for a standalone HTTPS/Caddy Compose configuration. It does not change the plugin's default server address. UI provenance review remains open before image distribution.
+
 ## Docker deployment
 
 ```bash
