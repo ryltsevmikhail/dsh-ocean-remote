@@ -1,5 +1,5 @@
 import { RemoteClientCore } from '@dsh-remote/client-core'
-import { PEER_KEEPALIVE_TIMEOUT_MS, PeerLiveness } from './peer-liveness.js'
+import { PEER_KEEPALIVE_METHOD, PEER_KEEPALIVE_TIMEOUT_MS, PeerLiveness } from './peer-liveness.js'
 import type { RtcPeerConnectionFactory } from '@dsh-remote/webrtc'
 import { AdaptiveTransport } from '@dsh-remote/webrtc'
 import { ApiProxySwitch } from './api-proxy-switch.js'
@@ -165,7 +165,8 @@ export class ClientConnection {
       const connectedTransport = transport
       // The relay never tells the Client that the Host dropped the tunnel, so probe it.
       const keepalive = new PeerLiveness({
-        probe: signal => connectedClient.rpc('host.describe', {}, signal, { timeoutMs: PEER_KEEPALIVE_TIMEOUT_MS }),
+        // Must be a router-level method: sub-methods of harness.api.call are not callable directly.
+        probe: signal => connectedClient.rpc(PEER_KEEPALIVE_METHOD, {}, signal, { timeoutMs: PEER_KEEPALIVE_TIMEOUT_MS }),
         onDead: failure => {
           this.context.logger.warn('remote Harness peer stopped answering', { targetDeviceId: shortId(target.deviceId), failure })
           void connectedClient.close().catch(() => undefined)

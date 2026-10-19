@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { PeerLiveness } from '../src/peer-liveness.js'
+import { PEER_KEEPALIVE_METHOD, PeerLiveness } from '../src/peer-liveness.js'
+import { supportsRouterMethod } from '../src/rpc-router.js'
 
 beforeEach(() => { vi.useFakeTimers() })
 afterEach(() => { vi.useRealTimers() })
@@ -56,5 +57,14 @@ describe('peer liveness', () => {
     expect(onDead).toHaveBeenCalledWith('error')
     await vi.advanceTimersByTimeAsync(5000)
     expect(probe).toHaveBeenCalledOnce()
+  })
+})
+
+describe('keepalive probe contract', () => {
+  it('uses a method the Host router answers directly', () => {
+    // A sub-method such as host.describe would reject with METHOD_NOT_FOUND and the
+    // keepalive would close every healthy connection.
+    expect(supportsRouterMethod(PEER_KEEPALIVE_METHOD)).toBe(true)
+    expect(supportsRouterMethod('host.describe')).toBe(false)
   })
 })

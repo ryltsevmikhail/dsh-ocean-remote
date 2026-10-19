@@ -1,6 +1,9 @@
 // Peer keepalive: the relay does not report a closed tunnel to the other side, so
 // without a periodic probe a revoked or vanished peer keeps looking connected.
 
+/** Router-level method used as the keepalive probe; must be answered directly by the Host router. */
+export const PEER_KEEPALIVE_METHOD = 'harness.transport.describe'
+
 /** How often the Client checks that the Host still answers. */
 export const PEER_KEEPALIVE_INTERVAL_MS = 20_000
 /** A single probe may take this long before the peer is considered gone. */

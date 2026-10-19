@@ -69,6 +69,9 @@ const apiMethods = new Set([
   'workspace.upload.abort',
 ])
 
+/** True when the Host router answers this method directly (not a harness.api.call sub-method). */
+export function supportsRouterMethod(method: string): boolean { return apiMethods.has(method) }
+
 export const HOST_CAPABILITIES = [
   'harness.api.v1',
   'harness.api.transfer.v1',

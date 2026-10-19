@@ -22731,6 +22731,7 @@ var ClientCodexStreams = class {
 };
 
 // src/peer-liveness.ts
+var PEER_KEEPALIVE_METHOD = "harness.transport.describe";
 var PEER_KEEPALIVE_INTERVAL_MS = 2e4;
 var PEER_KEEPALIVE_TIMEOUT_MS = 12e3;
 var PeerLiveness = class {
@@ -23030,7 +23031,8 @@ var ClientConnection = class {
       const connectedClient = client;
       const connectedTransport = transport;
       const keepalive = new PeerLiveness({
-        probe: (signal2) => connectedClient.rpc("host.describe", {}, signal2, { timeoutMs: PEER_KEEPALIVE_TIMEOUT_MS }),
+        // Must be a router-level method: sub-methods of harness.api.call are not callable directly.
+        probe: (signal2) => connectedClient.rpc(PEER_KEEPALIVE_METHOD, {}, signal2, { timeoutMs: PEER_KEEPALIVE_TIMEOUT_MS }),
         onDead: (failure4) => {
           this.context.logger.warn("remote Harness peer stopped answering", { targetDeviceId: shortId(target2.deviceId), failure: failure4 });
           void connectedClient.close().catch(() => void 0);
