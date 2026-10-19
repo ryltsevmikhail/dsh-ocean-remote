@@ -7,7 +7,7 @@ import type { ResolvedConfig } from '../src/config.js'
 import type { HostIdentity, IdentityStore, TrustedPeer } from '../src/identity-store.js'
 import type { SafeLogger } from '../src/logging.js'
 import { ServerApiError, type HostServerApi } from '../src/server-api.js'
-import { HostServerConnection } from '../src/server-connection.js'
+import { HostServerConnection, peerTunnelIds } from '../src/server-connection.js'
 import type { AuthenticatedPeerChannel } from '../src/types.js'
 import { PLUGIN_VERSION } from '../src/version.js'
 import type { RtcPeerConnectionFactory } from '@dsh-remote/webrtc'
@@ -81,6 +81,17 @@ describe('HostServerConnection', () => {
         } finally { vi.useRealTimers(); vi.restoreAllMocks() }
       }
     } })))
+  })
+
+  it('selects only the tunnels of the peer that lost trust', () => {
+    const tunnels = [
+      { connectionId: 'a', peer: { deviceId: 'client-one' } },
+      { connectionId: 'b', peer: { deviceId: 'client-two' } },
+      { connectionId: 'c', peer: { deviceId: 'client-one' } },
+    ]
+    expect(peerTunnelIds(tunnels, 'client-one')).toEqual(['a', 'c'])
+    expect(peerTunnelIds(tunnels, 'client-three')).toEqual([])
+    expect(peerTunnelIds([], 'client-one')).toEqual([])
   })
 
   it('matches the deployed Server frames and exposes RPC only after Noise IK', async () => {

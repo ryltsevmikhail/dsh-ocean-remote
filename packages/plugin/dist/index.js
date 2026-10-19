@@ -40428,8 +40428,12 @@ var HostServerConnection = class {
   }
   /** Close every tunnel of one peer, so removing local trust also ends live sessions. */
   async dropPeer(deviceId) {
-    const matches = [...this.tunnels.values()].filter((tunnel) => tunnel.peer.deviceId === deviceId);
-    await Promise.all(matches.map((tunnel) => this.dropTunnel(tunnel.connectionId, "DEVICE_REVOKED")));
+    const matches = peerTunnelIds(this.tunnels.values(), deviceId);
+    await Promise.all(matches.map(async (connectionId) => {
+      const tunnel = this.tunnels.get(connectionId);
+      if (tunnel === void 0) return;
+      await this.dropTunnel(connectionId, "DEVICE_REVOKED");
+    }));
   }
   async dropTunnel(connectionId, code) {
     const tunnel = this.tunnels.get(connectionId);
@@ -40482,6 +40486,9 @@ var TERMINAL_AUTH_ERRORS = /* @__PURE__ */ new Set([
   "DEVICE_REVOKED",
   "TOKEN_EXPIRED"
 ]);
+function peerTunnelIds(tunnels, deviceId) {
+  return [...tunnels].filter((tunnel) => tunnel.peer.deviceId === deviceId).map((tunnel) => tunnel.connectionId);
+}
 var ServerNoiseChannel = class {
   constructor(tunnel, transmit, onClose, mode2) {
     this.tunnel = tunnel;

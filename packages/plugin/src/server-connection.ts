@@ -823,8 +823,12 @@ export class HostServerConnection {
 
   /** Close every tunnel of one peer, so removing local trust also ends live sessions. */
   async dropPeer(deviceId: string): Promise<void> {
-    const matches = [...this.tunnels.values()].filter(tunnel => tunnel.peer.deviceId === deviceId)
-    await Promise.all(matches.map(tunnel => this.dropTunnel(tunnel.connectionId, 'DEVICE_REVOKED')))
+    const matches = peerTunnelIds(this.tunnels.values(), deviceId)
+    await Promise.all(matches.map(async connectionId => {
+      const tunnel = this.tunnels.get(connectionId)
+      if (tunnel === undefined) return
+      await this.dropTunnel(connectionId, 'DEVICE_REVOKED')
+    }))
   }
 
   private async dropTunnel(connectionId: string, code?: string): Promise<void> {
@@ -874,6 +878,11 @@ const TERMINAL_AUTH_ERRORS = new Set([
   'DEVICE_REVOKED',
   'TOKEN_EXPIRED',
 ])
+
+/** Connection ids whose authenticated peer is the given device. */
+export function peerTunnelIds(tunnels: Iterable<{ connectionId: string; peer: { deviceId: string } }>, deviceId: string): string[] {
+  return [...tunnels].filter(tunnel => tunnel.peer.deviceId === deviceId).map(tunnel => tunnel.connectionId)
+}
 
 class ServerNoiseChannel implements AuthenticatedPeerChannel {
   private readonly sends = new SerialSend()
