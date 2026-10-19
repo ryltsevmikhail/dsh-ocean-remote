@@ -2266,6 +2266,14 @@ Minimum version required to store current data is: ` + bestVersion + `.
   function messageOf(reason) {
     return reason instanceof Error ? reason.message : String(reason);
   }
+  function remoteCodeOf(error) {
+    let code = error?.details?.remoteCode ?? error?.code;
+    return typeof code == "string" && code.length > 0 ? code : void 0;
+  }
+  var signInResolvableCodes = /* @__PURE__ */ new Set(["ACCOUNT_AUTH_REQUIRED", "AUTH_INVALID", "TOKEN_EXPIRED", "DEVICE_REVOKED", "DEVICE_OWNERSHIP_REQUIRED"]);
+  function requiresSignIn(remoteCode) {
+    return remoteCode !== void 0 && signInResolvableCodes.has(remoteCode);
+  }
   function formatPlatform(value) {
     let normalized = value.toLowerCase();
     return normalized === "darwin" || normalized === "macos" ? "macOS" : normalized === "win32" || normalized === "windows" ? "Windows" : normalized === "linux" ? "Linux" : normalized === "android" ? "Android" : value;
@@ -3543,8 +3551,9 @@ Minimum version required to store current data is: ` + bestVersion + `.
               }), props.control("claude.workspaces.list", { targetDeviceId: nextSelectedHost.deviceId }).then((w) => setClaudeWorkspaces(w)).catch(() => {
               }));
             }
-          } catch {
-            setDevices([]), setNeedsAuthorization(!0), setSelectedHost(void 0), setWorkspaces([]), setCodexWorkspaces([]), setCursorWorkspaces([]), setAntigravityWorkspaces([]), setPiWorkspaces([]), setOpencodeWorkspaces([]), setClaudeWorkspaces([]), setShowAllWorkspaces(!1), setShowAllCodexWorkspaces(!1), setShowAllCursorWorkspaces(!1), setShowAllAntigravityWorkspaces(!1), setShowAllPiWorkspaces(!1), setShowAllOpencodeWorkspaces(!1), setShowAllClaudeWorkspaces(!1), setWorkspaceBackend("harness"), setCodexWorkspaceId(void 0), setCursorWorkspaceId(void 0), setAntigravityWorkspaceId(void 0), setPiWorkspaceId(void 0), setOpencodeWorkspaceId(void 0), setClaudeWorkspaceId(void 0), setPath(""), setAddingWorkspace(!1), setDirectory(void 0);
+          } catch (reason) {
+            let authRequired = requiresSignIn(reason?.remoteCode);
+            setDevices([]), authRequired ? setNeedsAuthorization(!0) : setError(messageOf(reason)), setSelectedHost(void 0), setWorkspaces([]), setCodexWorkspaces([]), setCursorWorkspaces([]), setAntigravityWorkspaces([]), setPiWorkspaces([]), setOpencodeWorkspaces([]), setClaudeWorkspaces([]), setShowAllWorkspaces(!1), setShowAllCodexWorkspaces(!1), setShowAllCursorWorkspaces(!1), setShowAllAntigravityWorkspaces(!1), setShowAllPiWorkspaces(!1), setShowAllOpencodeWorkspaces(!1), setShowAllClaudeWorkspaces(!1), setWorkspaceBackend("harness"), setCodexWorkspaceId(void 0), setCursorWorkspaceId(void 0), setAntigravityWorkspaceId(void 0), setPiWorkspaceId(void 0), setOpencodeWorkspaceId(void 0), setClaudeWorkspaceId(void 0), setPath(""), setAddingWorkspace(!1), setDirectory(void 0);
           }
         } catch (reason) {
           setError(messageOf(reason));
@@ -4963,7 +4972,10 @@ Minimum version required to store current data is: ` + bestVersion + `.
             if (controlRouteBackoffIndex += 1, controlRouteRetryAfter = Date.now() + delayMs, endpoint === "status") return controlRouteUnavailableStatus();
             throw new ControlRouteUnavailableError(t("remoteControlUnavailable"));
           }
-          if (!result.ok) throw new Error(result.error?.message ?? t("remoteRequestFailed"));
+          if (!result.ok) {
+            let code = remoteCodeOf(result.error), message = code === void 0 && /^transport failure/.test(result.error?.message ?? "") ? t("remoteRequestFailed") : result.error?.message ?? t("remoteRequestFailed"), failure = new Error(message);
+            throw code !== void 0 && (failure.remoteCode = code), failure;
+          }
           return result.value;
         }, trustLifetime = new AbortController();
         ctx.effect(() => () => trustLifetime.abort(), "ds-harness-remote: local trust HTTP");

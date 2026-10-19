@@ -2,7 +2,7 @@ import type { Translate } from './client-locale.js'
 import { en, localeNamespace, zh } from './client-locale.js'
 import { createRemoteSessionHeaderAction } from './client/header.js'
 import { pendingWorkspaceSelectionKey, storedWorkspaceSelection, workspacesReady } from './client/navigation.js'
-import { connectedProgress, connectionErrorMessage, messageOf } from './client/presentation.js'
+import { connectedProgress, connectionErrorMessage, messageOf, remoteCodeOf } from './client/presentation.js'
 import { createRemoteProgressView, runConnectHostProgress } from './client/progress.js'
 import { createRemotePluginOptions } from './client/settings.js'
 import { createPeerTrustAction } from './client/peer-trust-action.js'
@@ -334,7 +334,16 @@ window.__ModuleLoader__.load({
           if (endpoint === 'status') return controlRouteUnavailableStatus() as T
           throw new ControlRouteUnavailableError(t('remoteControlUnavailable'))
         }
-        if (!result.ok) throw new Error(result.error?.message ?? t('remoteRequestFailed'))
+        if (!result.ok) {
+          // Keep the machine-readable code so the UI can tell auth-required from transport failure.
+          const code = remoteCodeOf(result.error)
+          const message = code === undefined && /^transport failure/.test(result.error?.message ?? '')
+            ? t('remoteRequestFailed')
+            : result.error?.message ?? t('remoteRequestFailed')
+          const failure = new Error(message) as Error & { remoteCode?: string }
+          if (code !== undefined) failure.remoteCode = code
+          throw failure
+        }
         return result.value as T
       }
       // Approval never uses native RPC routing: rc.2 ignores the extra authority

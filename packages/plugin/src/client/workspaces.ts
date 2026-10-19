@@ -4,7 +4,7 @@ import type { OAuthProviderInfo } from '../server-api.js'
 import type { StatusFeed } from '../status-stream.js'
 import { deepSeekWorkspaceIcon, gptWorkspaceIcon } from './icons.js'
 import { pendingWorkspaceSelectionKey } from './navigation.js'
-import { connectedClientModeLabel, connectedProgress, formatPlatform, messageOf } from './presentation.js'
+import { connectedClientModeLabel, connectedProgress, formatPlatform, messageOf, requiresSignIn } from './presentation.js'
 import { createRemoteProgressView, runConnectHostProgress } from './progress.js'
 import type {
   ClientReact,
@@ -538,9 +538,12 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
                 .then(w => setClaudeWorkspaces(w)).catch(() => undefined)
             }
           }
-        } catch {
+        } catch (reason) {
+          // A transport failure must not masquerade as "please sign in".
+          const authRequired = requiresSignIn((reason as { remoteCode?: string } | undefined)?.remoteCode)
           setDevices([])
-          setNeedsAuthorization(true)
+          if (authRequired) setNeedsAuthorization(true)
+          else setError(messageOf(reason))
           setSelectedHost(undefined)
           setWorkspaces([])
           setCodexWorkspaces([])

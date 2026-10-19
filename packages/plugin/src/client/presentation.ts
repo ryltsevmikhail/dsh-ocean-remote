@@ -175,6 +175,19 @@ export function connectionStatusClass(status: RemoteStatus['host'] | undefined):
 
 export function messageOf(reason: unknown): string { return reason instanceof Error ? reason.message : String(reason) }
 
+/** Machine-readable reason carried by the control plane, never a user-facing message. */
+export function remoteCodeOf(error: { code?: string; details?: Record<string, unknown> } | undefined): string | undefined {
+  const code = error?.details?.remoteCode ?? error?.code
+  return typeof code === 'string' && code.length > 0 ? code : undefined
+}
+
+/** Failures that the sign-in form can actually resolve. */
+const signInResolvableCodes = new Set(['ACCOUNT_AUTH_REQUIRED', 'AUTH_INVALID', 'TOKEN_EXPIRED', 'DEVICE_REVOKED', 'DEVICE_OWNERSHIP_REQUIRED'])
+
+export function requiresSignIn(remoteCode: string | undefined): boolean {
+  return remoteCode !== undefined && signInResolvableCodes.has(remoteCode)
+}
+
 export function formatPlatform(value: string): string {
   const normalized = value.toLowerCase()
   if (normalized === 'darwin' || normalized === 'macos') return 'macOS'

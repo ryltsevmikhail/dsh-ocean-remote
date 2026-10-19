@@ -13,7 +13,7 @@ export type LocalTrustControl = <T>(endpoint: 'trust.status' | 'trust.approve' |
 export interface ControlResult<T = unknown> {
   ok: boolean
   value?: T
-  error?: { message?: string }
+  error?: { code?: string; message?: string; details?: Record<string, unknown> }
 }
 
 export interface FileViewerClientServiceLike {
