@@ -331,10 +331,11 @@ describe('AcpRemoteGateway', () => {
 
   it('auto-initializes PI, respects explicit disable and isolates unavailable PI startup', async () => {
     await runScenarios([
-      { name: 'default PI becomes ready after initialization', input: {}, disabled: false, missing: false },
-      { name: 'explicit backend disable prevents startup', input: { acp: { backends: [{ id: 'pi', enabled: false }] } }, disabled: true, missing: false },
+      { name: 'explicitly enabled ACP initializes PI', input: { acp: { enabled: true }, cursor: { enabled: true } }, disabled: false, missing: false },
+      { name: 'explicit backend disable prevents startup', input: { acp: { enabled: true, backends: [{ id: 'pi', enabled: false }] } }, disabled: true, missing: false },
       { name: 'ACP master disable prevents startup', input: { acp: { enabled: false } }, disabled: true, missing: false },
-      { name: 'missing PI does not prevent Cursor becoming ready', input: { cursor: { enabled: true } }, disabled: false, missing: true },
+      { name: 'master disable beats a backend row', input: { acp: { enabled: false, backends: [{ id: 'pi', enabled: true }] } }, disabled: true, missing: false },
+      { name: 'missing PI does not prevent Cursor becoming ready', input: { cursor: { enabled: true }, acp: { enabled: true } }, disabled: false, missing: true },
     ].map(scenario => ({ name: scenario.name, run: async () => {
       const pi = readyAcp(), cursor = readyAcp()
       if (scenario.missing) vi.mocked(pi.start).mockRejectedValue(new Error('PI executable unavailable'))

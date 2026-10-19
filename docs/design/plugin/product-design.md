@@ -27,7 +27,7 @@ Harness 通过官方 ApiProxy / Typert Remote carrier 接入；CodeX、Cursor、
 | Remote 入口 | 账号授权、Host/版本、工作区类型与就绪状态、目录浏览 |
 | Remote Header | 当前 Host、链路、加密说明、退出和预览服务 |
 | 本地设置 | Host 访问、终端、loopback 白名单、Agent 后端命令和开关 |
-| CodeX | 默认开启；App Server 数据源；Project/Thread 与内存展示投影 |
+| CodeX | 默认关闭（可显式开启）；App Server 数据源；Project/Thread 与内存展示投影 |
 | ACP | Cursor 默认关闭；Cursor/AGY 独立配置、capability 和会话归属 |
 
 `workspaceTypes.available` 表示实际就绪；capability 表示支持的协议。两者都满足才允许进入对应工作区。
@@ -38,7 +38,7 @@ Harness 通过官方 ApiProxy / Typert Remote carrier 接入；CodeX、Cursor、
 - 原生文件树与预览只读，使用官方工具或 provider 授权范围；不增加通用文件写入 RPC。
 - CodeX Project 注册限 Host 上已存在的真实绝对目录，不创建目录、不推测共同父目录。
 - CodeX 工具 scope 来自 Host 确认的 Thread cwd；ACP 工具 scope 来自会话创建或 Host catalog。
-- 终端默认开启，以 Host 用户权限运行；终端归属与输入权独立于 Agent 审批，断线不重放输入。
+- 终端默认关闭（可显式开启），以 Host 用户权限运行；终端归属与输入权独立于 Agent 审批，断线不重放输入。
 - Loopback 只访问本地白名单端口，不支持任意目标、CONNECT 或通用 TCP 转发。
 - Remote 禁止修改 `ds-harness-remote` / `dsh-remote` 自身访问设置。
 - AGY 图片仅允许 PNG/JPEG/WebP/GIF，每张 8 MiB、每次 4 张，写私有 tmp 缓存，保留 24 小时且总量有界。

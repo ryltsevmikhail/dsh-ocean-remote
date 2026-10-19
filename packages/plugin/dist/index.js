@@ -28017,8 +28017,10 @@ function resolveConfig(input3 = {}, env = process.env) {
   const legacyCursorEnabled = parsed.acp?.backend === "cursor" ? parsed.acp.enabled : void 0;
   const cursorEnabled = configuredCursorBackend?.enabled ?? parsed.cursor?.enabled ?? legacyCursorEnabled ?? false;
   const codexBackend = parsed.acp?.backends?.find((item) => item.id === "codex");
-  const codexEnabled = codexBackend?.enabled ?? parsed.codex?.enabled ?? true;
-  const acpEnabled = parsed.acp?.enabled ?? true;
+  const legacyCodexEnabled = parsed.acp?.backend === "codex" ? parsed.acp.enabled : void 0;
+  const codexEnabled = codexBackend?.enabled ?? parsed.codex?.enabled ?? legacyCodexEnabled ?? false;
+  const acpBackendEnabled = parsed.acp?.backends?.some((item) => item.id !== "codex" && item.enabled === true) ?? false;
+  const acpEnabled = parsed.acp?.enabled ?? (acpBackendEnabled || parsed.cursor?.enabled === true || legacyCursorEnabled === true);
   const reconnect = typeof parsed.reconnect === "object" ? parsed.reconnect : {};
   const configuredServerUrl = parsed.serverUrl ?? env.DSH_REMOTE_SERVER;
   const serverUrl = configuredServerUrl === void 0 ? void 0 : normalizeServerUrl(configuredServerUrl);
@@ -28033,7 +28035,7 @@ function resolveConfig(input3 = {}, env = process.env) {
     ...serverUrl === void 0 ? {} : { serverUrl },
     deviceName: parsed.deviceName ?? env.DSH_REMOTE_DEVICE_NAME ?? hostname(),
     hostControl: { enabled: parsed.hostControl?.enabled ?? true },
-    terminal: { enabled: parsed.terminal?.enabled ?? (env.DSH_REMOTE_TERMINAL_ENABLED === void 0 || env.DSH_REMOTE_TERMINAL_ENABLED === "true") },
+    terminal: { enabled: parsed.terminal?.enabled ?? env.DSH_REMOTE_TERMINAL_ENABLED === "true" },
     loopback: { ports: [...new Set(parsed.loopback?.ports ?? [])] },
     forceRelay: parsed.forceRelay ?? false,
     logLevel: parsed.logLevel ?? "info",
@@ -28044,7 +28046,7 @@ function resolveConfig(input3 = {}, env = process.env) {
       jitter: reconnect.jitter ?? 0.2
     },
     codex: {
-      enabled: acpEnabled && codexEnabled,
+      enabled: codexEnabled,
       binary: codexBackend?.command ?? parsed.codex?.binary ?? "codex"
     },
     cursor: {
@@ -28061,7 +28063,7 @@ function resolveConfig(input3 = {}, env = process.env) {
         const cwd2 = configured?.cwd ?? legacy?.cwd;
         return {
           id: id5,
-          enabled: configured?.enabled ?? legacy?.enabled ?? (id5 === "codex" ? codexEnabled : id5 === "cursor" ? cursorEnabled : id5 === "pi" ? true : id5 === "claude" ? true : id5 === "opencode" ? true : parsed.acp !== void 0),
+          enabled: configured?.enabled ?? legacy?.enabled ?? (id5 === "codex" ? codexEnabled : id5 === "cursor" ? cursorEnabled : parsed.acp?.enabled === true),
           command: configured?.command ?? legacy?.command ?? cursorCommand ?? defaults[id5] ?? id5,
           args: id5 === "codex" ? ["app-server"] : configured?.args ?? legacy?.args ?? (id5 === "pi" || id5 === "claude" ? [] : id5 === "antigravity" ? ["--input-format", "stream-json", "--output-format", "stream-json"] : ["acp"]),
           ...cwd2 === void 0 ? {} : { cwd: cwd2 }
@@ -38688,7 +38690,8 @@ var PluginControlRuntime = class {
       ...editableConfig(current),
       ...backend === "cursor" ? { cursor: { ...current.cursor, enabled } } : {},
       ...backend === "codex" ? { codex: { ...current.codex, enabled } } : {},
-      acp: { enabled: enabled || current.acp.enabled, backends }
+      // Codex does not need the ACP carrier; toggling it must not switch ACP on.
+      acp: { enabled: backend === "codex" ? current.acp.enabled : enabled || current.acp.enabled, backends }
     });
     await this.host?.setAgentBackends?.(resolveConfig(this.settings.get()));
     return { ...await this.settingsView(), applies: "live" };

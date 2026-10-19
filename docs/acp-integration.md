@@ -5,7 +5,7 @@
 
 ### Pi Agent（Issue #97，实验性）
 
-在 Host 运行 `npm install -g @earendil-works/pi-coding-agent pi-acp`。先通过 `pi` 配置模型与授权并完成本机对话；Remote 默认自动检测并初始化 Pi Agent，成功后开放工作区。未安装或初始化失败时不可用，不影响其他后端；明确设置 `enabled: false` 或关闭 ACP 总开关时不启动。Remote 设置 → Agent 后端可关闭 Pi Agent。默认命令为 `pi-acp`，参数为空；`pi` 本身的 RPC 模式不是 ACP，不能将命令直接替换为 `pi`。
+在 Host 运行 `npm install -g @earendil-works/pi-coding-agent pi-acp`。先通过 `pi` 配置模型与授权并完成本机对话；本分支默认不启动 Pi Agent：需要 `acp.enabled: true` 或显式 `acp.backends[]` 才会初始化，成功后开放工作区。未安装或初始化失败时不可用，不影响其他后端；明确设置 `enabled: false` 或关闭 ACP 总开关时不启动。Remote 设置 → Agent 后端可关闭 Pi Agent。默认命令为 `pi-acp`，参数为空；`pi` 本身的 RPC 模式不是 ACP，不能将命令直接替换为 `pi`。
 
 OpenAI 兼容端点通过 Pi 用户目录的 `models.json` 配置 `baseUrl`、`api`（如 `openai-responses`）和模型；密钥使用 Pi 私有凭据、环境变量或私有 credential command，不放入 Remote 配置。参考 [pi-acp 上游说明](https://github.com/svkozak/pi-acp)。
 
@@ -69,7 +69,7 @@ Claude 会话与目录来自上游标准 `session/list`；无效 envelope、异�
 3. 开启所需后端并保存。配置热生效，仅更新变化的后端，无需重启整个 DSH；CLI 可发现不代表已登录或协议就绪。
 4. 在 Client 登录同账号，选择在线 Host，再选择已就绪的后端工作区。Desktop 与 Android 使用现有工作区/会话界面。
 
-Codex 默认开启，Cursor 默认关闭；AGY 以 Host 配置为准。未就绪的后端不能自动替换为其他后端。
+本分支中 Codex、Cursor、AGY 及其余 ACP 后端默认全部关闭：Codex 需显式 `codex.enabled`，其余需 `acp.enabled: true` 或显式 `acp.backends[]`。未就绪的后端不能自动替换为其他后端。
 工作目录须在 Host 上已存在；Codex 新增 Project 仅注册真实目录，不创建目录或写入 Harness 存储。
 
 | 后端 | Host 接入 | 使用范围 |

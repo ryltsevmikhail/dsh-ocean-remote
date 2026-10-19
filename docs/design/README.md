@@ -52,7 +52,7 @@
 ## 访问与配置
 
 - 文件只读；Harness 使用官方 `workspaceFiles` / `officeToPdf` 或 dsh-file-viewer provider，CodeX / ACP 使用 Host 验证过的会话根和受限工具载体。
-- 原生终端默认开启，可在 Host 本地关闭；按设备固定归属、按连接校验输入权，断线不重放输入。
+- 原生终端默认关闭（可显式开启）；按设备固定归属、按连接校验输入权，断线不重放输入。
 - `loopback.ports` 默认空；仅允许 Host 出站访问 `127.0.0.1` 的明确白名单端口。Desktop 的预览代理只监听本机。
 - Remote 不得修改插件自身终端、loopback 或后端访问设置。后端开关热更新对应进程和 capability，ACP 初始化不阻塞 Harness Remote。
 - AGY 图片缓存是明确授权的私有 tmp 例外，不扩展为通用文件上传或项目写入。

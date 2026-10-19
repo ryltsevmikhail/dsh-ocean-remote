@@ -109,7 +109,7 @@ dsh plugin --profile web add -w ds-harness-remote@0.5.13
 
 1. 从 Harness 侧边栏打开 **Remote** 入口。
 2. *（上游步骤——本分支没有 OAuth 扫码登录，请使用账号密码。）*
-3. Host 启动后默认允许控制当前机器，远程终端也默认开启；需要时可在详细 Remote 设置中关闭远程终端。
+3. *（上游行为——本分支默认关闭远程终端。）* Host 启动后默认允许控制当前机器。
 4. 在另一台设备上打开 DeepSeek Harness 桌面版、Remote Web 或 Android 客户端，并登录同一账号。
 5. 选择在线 Host，再选择已有 Workspace 或浏览远端目录后打开。
 
@@ -121,7 +121,7 @@ dsh plugin --profile web add -w ds-harness-remote@0.5.13
 
 ### 桌面端
 
-Host 启动后默认允许控制当前设备，当前电脑即可作为 Host。远程终端默认开启，也可在详细 Remote 设置中关闭。
+Host 启动后默认允许控制当前设备，当前电脑即可作为 Host。*（上游行为——本分支默认关闭远程终端。）*
 
 在另一台电脑上选择在线 Host，然后打开它的 Workspace。
 
@@ -175,7 +175,7 @@ Desktop 与 Android 在内存中将工作区和会话映射到现有界面，不
 
 - **Cursor**：通过 CLI 的 ACP 接口接入。
 - **Antigravity（AGY）**：将 CLI 的 stream-json 接口适配到 ACP gateway。
-- **Pi Agent（实验性）**：在 Host 安装 `@earendil-works/pi-coding-agent` 与 `pi-acp`，配置 Pi 本机模型服务后，Remote 默认自动检测并初始化，ACP 初始化成功才开放工作区；可在 Remote 设置中明确关闭，使用独立 ACP 数据面。工具按 Host 用户权限执行，逐工具确认需要 Pi 扩展，默认不会自动启用。
+- **Pi Agent（实验性）**：在 Host 安装 `@earendil-works/pi-coding-agent` 与 `pi-acp`，配置 Pi 本机模型服务后，本分支默认不启动（需 ACP 总开关），ACP 初始化成功才开放工作区；可在 Remote 设置中开启，使用独立 ACP 数据面。工具按 Host 用户权限执行，逐工具确认需要 Pi 扩展，默认不会自动启用。
 
 - **OpenCode** — 通过 `opencode acp` 接入，支持工作区发现和历史恢复。Host 启动时检查 CLI 支持的参数，兼容带原生监听器与纯 stdio 的 ACP 构建。Desktop/Android 原生会话归档要求认证 loopback API；不提供该接口的版本会明确报告归档不可用。归档状态由 OpenCode 保存，历史保留；暂不提供恢复归档入口。
 - **Claude** — 使用 Host 本机已授权的 `claude-agent-acp`，需在 Remote 设置中开启；Desktop/Android 支持工作区、历史、文字消息及审批，暂不开放图片输入与直接 Files/Terminal 访问。
@@ -212,11 +212,11 @@ OAuth 登录方式由服务端动态提供。使用 `ds-harness-remote login lis
 
 - 会话流量经过端到端加密；服务端只中继密文，不保存会话明文或设备私钥。
 - Server membership 与 Host 本地固定的 peer identity 必须同时授权连接。
-- 交互终端使用 Host 本地的 `terminal.enabled`（默认开启），以 Host 用户身份运行，独立于 Agent 审批；
+- 交互终端使用 Host 本地的 `terminal.enabled`（本分支默认关闭），以 Host 用户身份运行，独立于 Agent 审批；
 - 不开放通用工具 RPC 或远程桌面。
 - Workspace 选择器只列出文件夹，并且只返回受限的只读目录元数据。
 - 远端文件预览不能写入、删除、上传、执行文件，也不能调用远端系统的“外部打开”。
-- Codex Remote / Agent ACP是可选功能，可以关闭，并遵循与 Remote 其他能力相同的加密 Host 权限边界。
+- Codex Remote / Agent ACP 为可选功能，本分支默认关闭，并遵循与 Remote 其他能力相同的加密 Host 权限边界。
 - 移除设备后，其凭证、membership 和已建立的 Remote 连接均会失效。
 
 ## 文档

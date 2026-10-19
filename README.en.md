@@ -107,7 +107,7 @@ Download the latest APK from [GitHub Releases](https://github.com/liguobao/ds-ha
 
 1. Open **Remote** from the Harness sidebar.
 2. *(Upstream step — this fork has no QR/OAuth sign-in; use account and password.)*
-3. The Host starts with control of the current computer enabled. Remote terminal access is also enabled by default; you can turn it off in the detailed Remote settings.
+3. *(Upstream — this fork keeps the terminal off by default.)* The Host starts with control of the current computer enabled.
 4. On another device, open the DeepSeek Harness desktop edition, Remote Web, or the Android client and sign in to the same account.
 5. Select the online Host, then choose an existing workspace or browse remote directories to open one.
 
@@ -119,7 +119,7 @@ Self-hosting options: [Tailscale](docs/tailnet-ocean.ru.md) or [public domain](d
 
 ### Desktop
 
-The current computer starts with **Allow control of this device** enabled and is available as a Host. Remote terminal access is also enabled by default and can be turned off in the Host's detailed Remote settings.
+The current computer starts with **Allow control of this device** enabled and is available as a Host. *(Upstream — in this fork the terminal is off by default.)*
 
 On another computer, select an online Host and open one of its workspaces.
 
@@ -174,7 +174,7 @@ Supported backends:
 
 - **Cursor** — connected through the CLI's ACP interface.
 - **Antigravity (AGY)** — its stream-json CLI is adapted to the ACP gateway.
-- **Pi Agent (experimental)** — install `@earendil-works/pi-coding-agent` and `pi-acp` on the Host, configure Pi's provider locally; Remote automatically detects and initializes Pi unless explicitly disabled in Remote settings. The workspace is available only after ACP initialization succeeds. Uses the separate ACP data plane. Tools run with Host-user permissions; per-tool confirmation requires a Pi extension and is not enabled by default.
+- **Pi Agent (experimental)** — *(Upstream behaviour; this fork keeps agent backends off unless `acp.enabled: true`.)* Install `@earendil-works/pi-coding-agent` and `pi-acp` on the Host, configure Pi's provider locally; Remote detects and initializes Pi when ACP is enabled unless explicitly disabled. The workspace is available only after ACP initialization succeeds. Uses the separate ACP data plane. Tools run with Host-user permissions; per-tool confirmation requires a Pi extension and is not enabled by default.
 
 - **OpenCode** — connected through `opencode acp`, with workspace discovery and history recovery. Host startup checks the CLI's supported options, accepting both native-listener and stdio-only ACP builds. Native session archiving on Desktop/Android requires the authenticated loopback API; builds without it report archiving unavailable. Archive state is saved by OpenCode; history is retained. Unarchive is not yet exposed.
 - **Claude** — uses a locally authorized `claude-agent-acp` on the Host; enable it in Remote settings. Desktop/Android support workspaces, history, text prompts and approvals. Image input and direct Files/Terminal access are not available.
@@ -209,10 +209,10 @@ OAuth sign-in methods are loaded from the Server. Use `ds-harness-remote login l
 
 - Session traffic is end-to-end encrypted. The service relays ciphertext without storing session plaintext or device private keys.
 - Server membership and the Host's locally pinned peer identity must both authorize a connection.
-- Interactive terminals use the Host-local `terminal.enabled` switch (on by default). They run as the Host user, independently of Agent approvals. General tool RPC and remote desktop remain unavailable.
+- Interactive terminals use the Host-local `terminal.enabled` switch (off by default in this fork; enable with `terminal.enabled: true` or `DSH_REMOTE_TERMINAL_ENABLED=true`). They run as the Host user, independently of Agent approvals. General tool RPC and remote desktop remain unavailable.
 - The workspace picker lists folders only and returns bounded, read-only directory metadata.
 - Remote file preview cannot write, delete, upload, execute, or open a path in an external application.
-- Codex Remote / Agent ACP is optional, can be disabled, and follows the same encrypted Host permission boundary as the rest of Remote.
+- Codex Remote / Agent ACP is optional and off by default in this fork; it follows the same encrypted Host permission boundary as the rest of Remote.
 - Removing a device revokes its credentials, membership, and active Remote connections.
 
 ## Documentation

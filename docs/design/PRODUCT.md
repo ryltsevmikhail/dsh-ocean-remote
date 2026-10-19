@@ -20,8 +20,8 @@ Desktop 复用 Harness 原生 UI；Android 提供适合移动端的工作区、�
 - dsh-TUI Host 的原生 `/remote` 登录、状态、退出与二维码授权。
 - 后端设置保存后热更新，工作区可用性由实际就绪状态决定。
 
-CodeX 默认开启、Cursor 默认关闭；其他 ACP 后端以 Host 配置和实际就绪状态为准。
-原生终端默认开启，loopback 端口默认未授权。以上默认值不能代替账号、identity 或 capability 校验。
+本分支中 CodeX、Cursor 与其他 ACP 后端默认全部关闭（需显式配置）。
+原生终端在本分支默认关闭，loopback 端口默认未授权。以上默认值不能代替账号、identity 或 capability 校验。
 
 ## 仓库边界
 

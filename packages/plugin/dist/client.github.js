@@ -1622,7 +1622,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
   // src/client-locale.ts
   var localeNamespace = "ds-harness-remote", en = {
     terminalRemote: "Remote terminal",
-    terminalRemoteHint: "Allow trusted Remote devices to run an interactive shell as this Host user. On by default; independent of Agent approvals. Toggling saves and applies immediately.",
+    terminalRemoteHint: "Allow trusted Remote devices to run an interactive shell as this Host user. Off by default in this fork; enable it here or with terminal.enabled / DSH_REMOTE_TERMINAL_ENABLED=true. Independent of Agent approvals; toggling saves and applies immediately.",
     terminalRemoteUnavailable: "Remote terminal is unavailable. Enable Remote terminal in the Host Remote settings; the switch applies immediately.",
     previewPorts: "Remote preview ports",
     previewPortsHint: "Allow specific Host ports (1024\u201365535), separated by commas. Empty disables preview. HTTP, WebSocket and hot reload are supported.",
@@ -1893,7 +1893,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
     codexVirtualSessions: "Sessions"
   }, zh = {
     terminalRemote: "\u8FDC\u7A0B\u7EC8\u7AEF",
-    terminalRemoteHint: "\u5141\u8BB8\u53D7\u4FE1\u4EFB\u7684 Remote \u8BBE\u5907\u4EE5\u6B64 Host \u7528\u6237\u8EAB\u4EFD\u8FD0\u884C\u4EA4\u4E92\u5F0F Shell\u3002\u9ED8\u8BA4\u5F00\u542F\uFF0C\u72EC\u7ACB\u4E8E Agent \u5BA1\u6279\uFF1B\u5207\u6362\u540E\u7ACB\u5373\u4FDD\u5B58\u5E76\u751F\u6548\u3002",
+    terminalRemoteHint: "\u5141\u8BB8\u53D7\u4FE1\u4EFB\u7684 Remote \u8BBE\u5907\u4EE5\u6B64 Host \u7528\u6237\u8EAB\u4EFD\u8FD0\u884C\u4EA4\u4E92\u5F0F Shell\u3002\u672C\u5206\u652F\u9ED8\u8BA4\u5173\u95ED\uFF0C\u53EF\u5728\u6B64\u5F00\u542F\u6216\u4F7F\u7528 terminal.enabled / DSH_REMOTE_TERMINAL_ENABLED=true\u3002\u72EC\u7ACB\u4E8E Agent \u5BA1\u6279\uFF1B\u5207\u6362\u540E\u7ACB\u5373\u4FDD\u5B58\u5E76\u751F\u6548\u3002",
     terminalRemoteUnavailable: "\u8FDC\u7A0B\u7EC8\u7AEF\u4E0D\u53EF\u7528\u3002\u8BF7\u5728 Host \u7684 Remote \u8BBE\u7F6E\u4E2D\u5F00\u542F\u300C\u8FDC\u7A0B\u7EC8\u7AEF\u300D\uFF0C\u5F00\u5173\u4F1A\u7ACB\u5373\u751F\u6548\u3002",
     previewPorts: "\u8FDC\u7A0B\u9884\u89C8\u7AEF\u53E3",
     previewPortsHint: "\u586B\u5199\u5141\u8BB8\u8BBF\u95EE\u7684 Host \u7AEF\u53E3\uFF081024\u201365535\uFF09\uFF0C\u4EE5\u9017\u53F7\u5206\u9694\u3002\u7559\u7A7A\u7981\u7528\u9884\u89C8\uFF1B\u652F\u6301 HTTP\u3001WebSocket \u548C\u70ED\u66F4\u65B0\u3002",
@@ -2916,7 +2916,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
             React.createElement("input", {
               type: "checkbox",
               role: "switch",
-              checked: settingsView?.config.acp?.enabled === !0 && item.enabled && acpAvailability[item.id] === !0,
+              checked: (item.id === "codex" || settingsView?.config.acp?.enabled === !0) && item.enabled && acpAvailability[item.id] === !0,
               "aria-label": item.id,
               disabled: busy || !writable || acpChecking[item.id] === !0 || acpAvailability[item.id] !== !0,
               onChange: (event) => void props.control("settings.acp.set", { backend: item.id, enabled: event.target.checked }).then((view) => {

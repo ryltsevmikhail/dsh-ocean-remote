@@ -173,8 +173,15 @@ export function resolveConfig(input: ConfigInput = {}, env: NodeJS.ProcessEnv = 
     ?? legacyCursorEnabled
     ?? false
   const codexBackend = parsed.acp?.backends?.find(item => item.id === 'codex')
-  const codexEnabled = codexBackend?.enabled ?? parsed.codex?.enabled ?? true
-  const acpEnabled = parsed.acp?.enabled ?? true
+  const legacyCodexEnabled = parsed.acp?.backend === 'codex' ? parsed.acp.enabled : undefined
+  // Unsupported surfaces stay off unless explicitly enabled (release scope, see docs/audit).
+  // Codex has its own app-server path and does not need the ACP carrier.
+  // Codex runs its own app-server, not an ACP adapter, so the ACP master does not gate it.
+  const codexEnabled = codexBackend?.enabled ?? parsed.codex?.enabled ?? legacyCodexEnabled ?? false
+  // ACP is needed only for ACP backends: Cursor, Pi, Claude, OpenCode, AGY.
+  const acpBackendEnabled = parsed.acp?.backends?.some(item => item.id !== 'codex' && item.enabled === true) ?? false
+  const acpEnabled = parsed.acp?.enabled
+    ?? (acpBackendEnabled || parsed.cursor?.enabled === true || legacyCursorEnabled === true)
   const reconnect = typeof parsed.reconnect === 'object' ? parsed.reconnect : {}
   const configuredServerUrl = parsed.serverUrl ?? env.DSH_REMOTE_SERVER
   const serverUrl = configuredServerUrl === undefined ? undefined : normalizeServerUrl(configuredServerUrl)
@@ -189,7 +196,7 @@ export function resolveConfig(input: ConfigInput = {}, env: NodeJS.ProcessEnv = 
     ...(serverUrl === undefined ? {} : { serverUrl }),
     deviceName: parsed.deviceName ?? env.DSH_REMOTE_DEVICE_NAME ?? hostname(),
     hostControl: { enabled: parsed.hostControl?.enabled ?? true },
-    terminal: { enabled: parsed.terminal?.enabled ?? (env.DSH_REMOTE_TERMINAL_ENABLED === undefined || env.DSH_REMOTE_TERMINAL_ENABLED === 'true') },
+    terminal: { enabled: parsed.terminal?.enabled ?? env.DSH_REMOTE_TERMINAL_ENABLED === 'true' },
     loopback: { ports: [...new Set(parsed.loopback?.ports ?? [])] },
     forceRelay: parsed.forceRelay ?? false,
     logLevel: parsed.logLevel ?? 'info',
@@ -200,7 +207,7 @@ export function resolveConfig(input: ConfigInput = {}, env: NodeJS.ProcessEnv = 
       jitter: reconnect.jitter ?? 0.2,
     },
     codex: {
-      enabled: acpEnabled && codexEnabled,
+      enabled: codexEnabled,
       binary: codexBackend?.command ?? parsed.codex?.binary ?? 'codex',
     },
     cursor: {
@@ -220,7 +227,7 @@ export function resolveConfig(input: ConfigInput = {}, env: NodeJS.ProcessEnv = 
         return {
           id,
           enabled: configured?.enabled ?? legacy?.enabled
-            ?? (id === 'codex' ? codexEnabled : id === 'cursor' ? cursorEnabled : id === 'pi' ? true : id === 'claude' ? true : id === 'opencode' ? true : parsed.acp !== undefined),
+            ?? (id === 'codex' ? codexEnabled : id === 'cursor' ? cursorEnabled : parsed.acp?.enabled === true),
           command: configured?.command ?? legacy?.command ?? cursorCommand ?? defaults[id] ?? id,
           args: id === 'codex' ? ['app-server'] : configured?.args ?? legacy?.args
             ?? (id === 'pi' || id === 'claude' ? [] : id === 'antigravity' ? ['--input-format', 'stream-json', '--output-format', 'stream-json'] : ['acp']),

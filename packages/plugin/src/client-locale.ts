@@ -3,7 +3,7 @@ export const localeNamespace = 'ds-harness-remote'
 
 export const en = {
   terminalRemote: 'Remote terminal',
-  terminalRemoteHint: 'Allow trusted Remote devices to run an interactive shell as this Host user. On by default; independent of Agent approvals. Toggling saves and applies immediately.',
+  terminalRemoteHint: 'Allow trusted Remote devices to run an interactive shell as this Host user. Off by default in this fork; enable it here or with terminal.enabled / DSH_REMOTE_TERMINAL_ENABLED=true. Independent of Agent approvals; toggling saves and applies immediately.',
   terminalRemoteUnavailable: 'Remote terminal is unavailable. Enable Remote terminal in the Host Remote settings; the switch applies immediately.',
   previewPorts: 'Remote preview ports',
   previewPortsHint: 'Allow specific Host ports (1024–65535), separated by commas. Empty disables preview. HTTP, WebSocket and hot reload are supported.',
@@ -277,7 +277,7 @@ export const en = {
 
 export const zh: Record<keyof typeof en, string> = {
   terminalRemote: '远程终端',
-  terminalRemoteHint: '允许受信任的 Remote 设备以此 Host 用户身份运行交互式 Shell。默认开启，独立于 Agent 审批；切换后立即保存并生效。',
+  terminalRemoteHint: '允许受信任的 Remote 设备以此 Host 用户身份运行交互式 Shell。本分支默认关闭，可在此开启或使用 terminal.enabled / DSH_REMOTE_TERMINAL_ENABLED=true。独立于 Agent 审批；切换后立即保存并生效。',
   terminalRemoteUnavailable: '远程终端不可用。请在 Host 的 Remote 设置中开启「远程终端」，开关会立即生效。',
   previewPorts: '远程预览端口',
   previewPortsHint: '填写允许访问的 Host 端口（1024–65535），以逗号分隔。留空禁用预览；支持 HTTP、WebSocket 和热更新。',

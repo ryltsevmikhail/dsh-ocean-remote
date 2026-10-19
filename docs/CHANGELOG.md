@@ -1,5 +1,10 @@
 ## Unreleased
 
+- Форк: терминал, Codex и ACP-бэкенды теперь **выключены по умолчанию** (`terminal.enabled`, `acp.enabled`, `codex.enabled`). Включать их нужно явно; см. `docs/audit/03-backlog.ru.md`.
+- Форк: `DSH_REMOTE_TERMINAL_ENABLED` больше не включает терминал сам по себе — только точное значение `true`. Сохранение настроек записывает `terminal.enabled` в профиль, и значение профиля важнее переменной.
+- Форк: Codex больше не зависит от ACP-мастера (у него собственный app-server), но при `acp.enabled: false` явная запись `acp.backends[]` не включает сервер. Остальные ACP-бэкенды включаются только через `acp.enabled: true` или явную запись `acp.backends[]`.
+- Форк: инструкции установки больше не отправляют на upstream npm и `dsh.r2049.cn`; добавлена инструкция `docs/fork-install.ru.md`.
+
 - Add a Save button beside the Remote sign-in Server address. Saving applies the Server and refreshes its sign-in methods automatically, discarding the previous QR flow and pending discovery results.
 - Remote 登录面板的 Server 地址旁增加“保存”；保存后应用地址并自动刷新登录方式，清理旧二维码流程与迟到的登录方式结果。
 - Animate the text suffix during Android connection/recovery (`.` → `..` → `...`) on the connection page, workspace recovery state and chat banner. Reserve the suffix width and keep timer updates inside the small suffix component. Type checking and arm64 Release APK build passed; the updated APK was installed and consecutive native screenshots confirmed the changing suffix on the connection page. No presentation-only tests added.

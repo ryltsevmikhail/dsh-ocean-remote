@@ -67,7 +67,7 @@ CodeX 工具使用原生 `workspaceFiles/*` / `terminal/*` 语义；不是放开
 ACP 工具使用独立 `dsh/toolCall` 与有 tool 参数的 stream，限编译期固定 endpoints；scope 必须与 backend/session 匹配。
 客户端不能提交任意 cwd 来扩展工具 authority。
 
-终端默认开启，Host 本地可立即关闭。固定设备归属与当前连接输入权；follow/retain、输出序号和关闭遵循原生语义。
+终端默认关闭，Host 本地可立即开启。固定设备归属与当前连接输入权；follow/retain、输出序号和关闭遵循原生语义。
 断线保留可恢复的终端状态但不重放输入；领域关闭结束其进程。Host subprocess 服务可用时使用 PTY，否则回退 pipe；
 共享桥输出是有界原始日志，由 Client 终端模拟器重放。
 
@@ -83,7 +83,7 @@ Desktop Client 随机本机监听端口承载独立 preview origin；Header 提�
 
 ## 6. CodeX 与 ACP
 
-CodeX 默认开启，通过 stdio App Server 访问固定方法。
+CodeX 默认关闭（可显式开启），通过 stdio App Server 访问固定方法。
 Workspace authority 优先 `project/list`，缺少有效根目录才回退到 `thread/list` 已返回的绝对 cwd。
 `project/create` 仅注册 Host 真实目录，realpath + 目录验证后由 App Server 返回 Project 扩展 authority。
 新 Thread 子目录需词法路径与 realpath 双重校验；已有 Thread 操作也重新校验归属。

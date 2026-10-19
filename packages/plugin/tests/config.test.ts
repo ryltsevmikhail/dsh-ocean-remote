@@ -7,16 +7,42 @@ describe('plugin config', () => {
       enabled: true,
       role: 'host',
       hostControl: { enabled: true },
-      terminal: { enabled: true },
+      terminal: { enabled: false },
       forceRelay: false,
       reconnect: { enabled: true, initialDelayMs: 1_000, maxDelayMs: 30_000, jitter: 0.2 },
-      codex: { enabled: true, binary: 'codex' },
+      codex: { enabled: false, binary: 'codex' },
       cursor: { enabled: false, binary: 'agent' },
     })
+    expect(resolveConfig({}, { DSH_REMOTE_TERMINAL_ENABLED: 'true' }).terminal.enabled).toBe(true)
     expect(resolveConfig({}, { DSH_REMOTE_TERMINAL_ENABLED: 'false' }).terminal.enabled).toBe(false)
   })
 
-  it('allows the default-on Codex domain to be disabled and rejects obsolete workspace filters', () => {
+  it('keeps agent surfaces off by default and derives ACP only from ACP backends', () => {
+    const base = resolveConfig({}, {})
+    expect(base).toMatchObject({ terminal: { enabled: false }, codex: { enabled: false }, acp: { enabled: false }, cursor: { enabled: false } })
+    expect(base.acp?.backends.every(item => item.enabled === false)).toBe(true)
+    // Codex has its own carrier: it must not switch the ACP master on.
+    const codexOnly = resolveConfig({ codex: { enabled: true } }, {})
+    expect(codexOnly.codex.enabled).toBe(true)
+    expect(codexOnly.acp?.enabled).toBe(false)
+    expect(codexOnly.acp?.backends.filter(item => item.id !== 'codex').every(item => item.enabled === false)).toBe(true)
+    // An explicitly enabled ACP backend implies the carrier.
+    const cursorOnly = resolveConfig({ codex: { enabled: false }, cursor: { enabled: true } }, {})
+    expect(cursorOnly.acp?.enabled).toBe(true)
+    expect(cursorOnly.cursor.enabled).toBe(true)
+    expect(cursorOnly.codex.enabled).toBe(false)
+    // ACP master on is still required for backend startup, and per-backend disable wins.
+    const acpOn = resolveConfig({ acp: { enabled: true, backends: [{ id: 'pi', enabled: false }] } }, {})
+    expect(acpOn.acp?.backends.find(item => item.id === 'pi')?.enabled).toBe(false)
+    expect(acpOn.acp?.backends.find(item => item.id === 'claude')?.enabled).toBe(true)
+    const backendOnly = resolveConfig({ acp: { backends: [{ id: 'claude', enabled: true }] } }, {})
+    expect(backendOnly.acp?.enabled).toBe(true)
+    expect(backendOnly.acp?.backends.find(item => item.id === 'claude')?.enabled).toBe(true)
+    // Legacy shorthand keeps working.
+    expect(resolveConfig({ acp: { enabled: true, backend: 'codex' } }, {}).codex.enabled).toBe(true)
+  })
+
+  it('keeps Codex off by default and honours explicit enable and obsolete workspace filters', () => {
     expect(resolveConfig({ codex: { enabled: false } }, {})).toMatchObject({
       codex: { enabled: false, binary: 'codex' },
     })
@@ -49,7 +75,8 @@ describe('plugin config', () => {
     } }, {})
     expect(config.codex).toEqual({ enabled: false, binary: '/new/codex' })
     expect(config.acp?.backends.some(item => item.id === 'kimi')).toBe(false)
-    expect(resolveConfig({ acp: { enabled: false, backends: [{ id: 'codex', enabled: true }] } }, {}).codex.enabled).toBe(false)
+    // Codex has its own carrier: an explicit Codex switch is not gated by the ACP master.
+    expect(resolveConfig({ acp: { enabled: false, backends: [{ id: 'codex', enabled: true }] } }, {}).codex.enabled).toBe(true)
   })
 
   it('has no implicit server and respects explicit configuration over the environment', () => {

@@ -52,4 +52,4 @@
 
 文档优先级：`protocol.md` 的线协议约束高于示例代码；Server 设计发生变化时必须同步检查协议兼容性和版本号。
 
-2026-09-20 原生侧栏扩展：官方文件树/只读预览、默认开启且可在详细 Remote 设置中关闭的终端，以及受限 loopback HTTP/WebSocket 预览，配置与边界见根 README，线协议见 `protocol.md`。完整 Server 仍只转发密文，不代理预览 HTTP 明文。
+2026-09-20 原生侧栏扩展：官方文件树/只读预览、默认关闭、可在详细 Remote 设置中显式开启的终端，以及受限 loopback HTTP/WebSocket 预览，配置与边界见根 README，线协议见 `protocol.md`。完整 Server 仍只转发密文，不代理预览 HTTP 明文。

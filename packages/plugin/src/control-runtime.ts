@@ -368,7 +368,8 @@ export class PluginControlRuntime {
       ...editableConfig(current),
       ...(backend === 'cursor' ? { cursor: { ...current.cursor, enabled } } : {}),
       ...(backend === 'codex' ? { codex: { ...current.codex, enabled } } : {}),
-      acp: { enabled: enabled || current.acp.enabled, backends },
+      // Codex does not need the ACP carrier; toggling it must not switch ACP on.
+      acp: { enabled: backend === 'codex' ? current.acp.enabled : enabled || current.acp.enabled, backends },
     })
     await this.host?.setAgentBackends?.(resolveConfig(this.settings.get()))
     return { ...await this.settingsView(), applies: 'live' }

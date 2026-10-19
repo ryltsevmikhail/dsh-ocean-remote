@@ -15,8 +15,9 @@ function setup(device: string, owners = new Map<string, string>(), enabled = tru
 const create = { endpoint: 'terminal/create', payload: { args: { agentId: 'session-1', request: { id: 'terminal-1', cols: 80, rows: 24 } } } }
 
 describe('native sidebar access boundaries', () => {
-  it('defaults terminal on and validates explicit preview ports', () => {
-    expect(resolveConfig()).toMatchObject({ terminal: { enabled: true }, loopback: { ports: [] } })
+  it('keeps terminal off by default and validates explicit preview ports', () => {
+    expect(resolveConfig({}, {})).toMatchObject({ terminal: { enabled: false }, loopback: { ports: [] } })
+    expect(resolveConfig({ terminal: { enabled: true } }).terminal.enabled).toBe(true)
     expect(resolveConfig({ loopback: { ports: [3000, 3000, 5173] } }).loopback.ports).toEqual([3000, 5173])
     for (const ports of [[0], [22], [65536], [1.5]]) expect(() => resolveConfig({ loopback: { ports } })).toThrow()
   })

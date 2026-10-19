@@ -76,7 +76,7 @@ This repository includes a minimal, single-account self-hosted Relay Server in [
 - Account membership and the Host's locally pinned device identity must both authorize a connection.
 - The Host creates outbound connections only; it does not listen on a public port.
 - Remote does not expose general tool RPC, remote desktop, or file-mutation APIs.
-- Interactive terminals are enabled by default and can be disabled in the Host-local Remote settings; they run as the Host user independently of Agent approvals.
+- Interactive terminals are **disabled by default** in this fork; enable them with `terminal.enabled: true` or `DSH_REMOTE_TERMINAL_ENABLED=true`. They run as the Host user independently of Agent approvals.
 
 ## Documentation
 
