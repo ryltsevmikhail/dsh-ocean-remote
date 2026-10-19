@@ -40426,6 +40426,11 @@ var HostServerConnection = class {
     }));
     await this.connections.close();
   }
+  /** Close every tunnel of one peer, so removing local trust also ends live sessions. */
+  async dropPeer(deviceId) {
+    const matches = [...this.tunnels.values()].filter((tunnel) => tunnel.peer.deviceId === deviceId);
+    await Promise.all(matches.map((tunnel) => this.dropTunnel(tunnel.connectionId, "DEVICE_REVOKED")));
+  }
   async dropTunnel(connectionId, code) {
     const tunnel = this.tunnels.get(connectionId);
     if (tunnel === void 0) return;
@@ -42418,7 +42423,10 @@ var HostPluginRuntime = class {
     await this.invalidatePeerApprovals();
     try {
       const revoked = await this.identities.revokePeer(deviceId);
-      if (revoked) await this.connections.revoke(deviceId);
+      if (revoked) {
+        await this.connections.revoke(deviceId);
+        await this.serverConnection?.dropPeer(deviceId);
+      }
       return revoked;
     } finally {
       this.renewPeerApprovals();

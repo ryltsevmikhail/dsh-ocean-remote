@@ -444,7 +444,12 @@ export class HostPluginRuntime {
     await this.invalidatePeerApprovals()
     try {
       const revoked = await this.identities.revokePeer(deviceId)
-      if (revoked) await this.connections.revoke(deviceId)
+      if (revoked) {
+        // The connection controller keys on the authenticated channel, but a tunnel can
+        // exist before its channel is registered; drop both so no session outlives trust.
+        await this.connections.revoke(deviceId)
+        await this.serverConnection?.dropPeer(deviceId)
+      }
       return revoked
     } finally {
       // Without a renewed queue every later approve/reject fails until a restart.

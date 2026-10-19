@@ -821,6 +821,12 @@ export class HostServerConnection {
     await this.connections.close()
   }
 
+  /** Close every tunnel of one peer, so removing local trust also ends live sessions. */
+  async dropPeer(deviceId: string): Promise<void> {
+    const matches = [...this.tunnels.values()].filter(tunnel => tunnel.peer.deviceId === deviceId)
+    await Promise.all(matches.map(tunnel => this.dropTunnel(tunnel.connectionId, 'DEVICE_REVOKED')))
+  }
+
   private async dropTunnel(connectionId: string, code?: string): Promise<void> {
     const tunnel = this.tunnels.get(connectionId)
     if (tunnel === undefined) return

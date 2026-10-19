@@ -172,6 +172,24 @@ describe('ConnectionController', () => {
     ])
   }, 20000)
 
+  it('closes exactly the revoked device channel and keeps others', async () => {
+    const controller = new ConnectionController(
+      { isTrusted: () => true } as unknown as IdentityStore,
+      () => ({ handle: vi.fn(async () => undefined), closePeerStreams: vi.fn(async () => undefined) } as unknown as RpcRouter),
+    )
+    const kept = fakeChannel('connection-kept', 'client-kept')
+    const revoked = fakeChannel('connection-revoked', 'client-revoked')
+    await controller.accept(kept)
+    await controller.accept(revoked)
+    await controller.revoke('client-revoked')
+    expect(revoked.close).toHaveBeenCalledOnce()
+    expect(kept.close).not.toHaveBeenCalled()
+    expect(controller.peerDeviceIds()).toEqual(['client-kept'])
+    // Revoking an unknown device is a no-op, not an error.
+    await expect(controller.revoke('client-unknown')).resolves.toBeUndefined()
+    expect(kept.close).not.toHaveBeenCalled()
+  })
+
   it('returns a small RPC error instead of silently dropping an oversized response', async () => {
     const oversized = createRpcResponse('request-1', { value: 'x'.repeat(MAX_SECURE_MESSAGE_BYTES) })
     const controller = new ConnectionController(
