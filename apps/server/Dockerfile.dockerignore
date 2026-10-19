@@ -3,6 +3,9 @@
 !pnpm-lock.yaml
 !pnpm-workspace.yaml
 !tsconfig.base.json
+!LICENSE
+!apps/server/scripts/
+!apps/server/scripts/**
 !packages/
 !packages/protocol/
 !packages/protocol/package.json

@@ -54,6 +54,20 @@ Open <http://localhost:8080>. Set the same Server URL on your Host and Client, t
 
 For public access, use an HTTPS reverse proxy and set `DSH_SERVER_PUBLIC_URL` to your domain. The proxy must support WebSocket Upgrade at `/ws/v1/connect` with an idle timeout above 75 seconds.
 
+## Production artifact and license notices
+
+From the repository root, after the builds above:
+
+```sh
+mkdir -p .local
+node apps/server/scripts/package-server.mjs .local/server-release
+node apps/server/scripts/smoke-deploy.mjs .local/server-release
+```
+
+The destination must be new; the packager never overwrites an existing deployment. Do not use `pnpm deploy` for this server: pnpm 9 in this workspace also copies unrelated root-plugin dependencies. The audited packager includes only the built console/server, internal protocol package, ws and zod. Run the smoke check on the same Node 22 used for deployment. It starts temporary loopback processes, uses random throwaway credentials, tests authentication and restart persistence, then removes its own temporary state; it does not use a DSH profile.
+
+The build copies full project and seven audited third-party licenses into `dist/LICENSE`, `dist/THIRD_PARTY_NOTICES.txt`, and `dist/public/THIRD_PARTY_NOTICES.txt`. The latter is available through the console's **Лицензии** link. Dependency-version changes or newly installed optional peers require another audit and fail the notices build until reviewed. Node/OS image licenses are outside this application-level inventory. Docker build, runtime user/volume behavior and HTTPS still require actual container validation; a local artifact smoke check does not establish them.
+
 ## Features
 
 - Device registration, credential refresh, device discovery, Control, and end-to-end encrypted Relay.

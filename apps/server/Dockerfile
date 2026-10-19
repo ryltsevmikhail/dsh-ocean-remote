@@ -2,7 +2,7 @@ FROM node:22-bookworm-slim AS build
 WORKDIR /workspace
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json LICENSE ./
 COPY packages/protocol/package.json packages/protocol/package.json
 COPY apps/server/package.json apps/server/package.json
 RUN pnpm --filter @dsh-remote/server... install --frozen-lockfile --ignore-scripts
@@ -10,11 +10,12 @@ RUN pnpm --filter @dsh-remote/server... install --frozen-lockfile --ignore-scrip
 COPY packages/protocol/src packages/protocol/src
 COPY packages/protocol/tsconfig.json packages/protocol/tsconfig.json
 COPY apps/server/src apps/server/src
+COPY apps/server/scripts apps/server/scripts
 COPY apps/server/web apps/server/web
 COPY apps/server/tsconfig.json apps/server/tsconfig.json
 RUN pnpm --filter @dsh-remote/protocol build \
     && pnpm --filter @dsh-remote/server build \
-    && pnpm --filter @dsh-remote/server deploy --prod /out
+    && node apps/server/scripts/package-server.mjs /out
 
 FROM node:22-bookworm-slim AS runtime
 ENV NODE_ENV=production \

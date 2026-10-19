@@ -48,8 +48,9 @@ h2:focus { outline: none; }
 h2:focus-visible { outline: 2px solid var(--accent); }
 .error { border: 1px solid #edc3ba; border-radius: 9px; background: #fff5f2; padding: 12px 16px; color: #9a3929; font-size: 13px; margin: 0 0 24px; }
 footer { padding: 20px 0 26px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 32px; align-items: flex-start; }
-footer > a { font-size: 11px; text-decoration: none; white-space: nowrap; }
-footer > a:hover { text-decoration: underline; }
+.footer-links { display: flex; flex-wrap: wrap; gap: 14px; }
+.footer-links a { font-size: 11px; text-decoration: none; white-space: nowrap; }
+.footer-links a:hover { text-decoration: underline; }
 footer p { margin: 0; max-width: 580px; color: var(--muted); font-size: 10px; line-height: 1.7; text-align: right; }
 .dashboard main { justify-content: flex-start; padding-top: 32px; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

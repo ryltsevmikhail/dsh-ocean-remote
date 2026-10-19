@@ -143,7 +143,7 @@ function App() {
         </section>}
     </main>
     <footer>
-      <a href="https://github.com/Ryltsevmg/dsh-ocean-remote" target="_blank" rel="noreferrer">Исходный код Ocean</a>
+      <div className="footer-links"><a href="https://github.com/Ryltsevmg/dsh-ocean-remote" target="_blank" rel="noreferrer">Исходный код Ocean</a><a href="/THIRD_PARTY_NOTICES.txt">Лицензии</a></div>
       <p>Хост выполняет инструменты со своими правами. Сервер участвует в авторизации устройств; ручное доверие ключам — отдельная граница защиты.</p>
     </footer>
   </div>

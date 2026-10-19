@@ -83,12 +83,12 @@ export function createRemoteServer(config: Config) {
     const method = req.method
     // Public HTML/assets contain no account data. Cross-site navigation to the
     // console is safe; keep Origin/Fetch-Metadata checks on all API requests.
-    const staticAsset = path.startsWith('/assets/')
+    const staticAsset = path.startsWith('/assets/') || path === '/THIRD_PARTY_NOTICES.txt'
     if (method === 'GET' && (['/', '/app', '/app/login', '/app/remote'].includes(path) || staticAsset)) {
       const name = staticAsset ? path.slice(1) : 'index.html'
       const asset = assets.get(name)
       if (!asset) throw new ApiError('METHOD_NOT_FOUND', 404)
-      const contentType = name.endsWith('.js') ? 'text/javascript; charset=utf-8' : name.endsWith('.css') ? 'text/css; charset=utf-8' : name.endsWith('.png') ? 'image/png' : name.endsWith('.webp') ? 'image/webp' : 'text/html; charset=utf-8'
+      const contentType = name.endsWith('.js') ? 'text/javascript; charset=utf-8' : name.endsWith('.css') ? 'text/css; charset=utf-8' : name.endsWith('.txt') ? 'text/plain; charset=utf-8' : name.endsWith('.png') ? 'image/png' : name.endsWith('.webp') ? 'image/webp' : 'text/html; charset=utf-8'
       res.setHeader('Content-Type', contentType)
       res.end(asset); return
     }
