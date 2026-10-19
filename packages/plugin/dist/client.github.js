@@ -1674,6 +1674,12 @@ Minimum version required to store current data is: ` + bestVersion + `.
     roleHint: "Changing the role replaces the Remote runtime for the selected Server; unsaved drafts are discarded.",
     layerAccountOk: "Account: signed in",
     layerAccountRequired: "Account: sign-in required",
+    diagnosticsTitle: "Diagnostics",
+    diagnosticsHint: "Copy a sanitized snapshot for a bug report: identifiers are shortened, tokens and keys are never included.",
+    diagnosticsCopy: "Copy diagnostics",
+    diagnosticsCopied: "Copied to the clipboard.",
+    diagnosticsSelect: "Select the text below and copy it manually.",
+    diagnosticsFailed: "Could not collect diagnostics. Try again.",
     layerTrustOk: "Key: trusted",
     layerTrustPending: "Key: approval required",
     layerTrustConflict: "Key: changed",
@@ -1969,6 +1975,12 @@ Minimum version required to store current data is: ` + bestVersion + `.
     roleHint: "\u5207\u6362\u89D2\u8272\u4F1A\u66FF\u6362\u6240\u9009 Server \u7684 Remote \u8FD0\u884C\u65F6\uFF0C\u672A\u4FDD\u5B58\u7684\u8349\u7A3F\u4F1A\u88AB\u4E22\u5F03\u3002",
     layerAccountOk: "\u8D26\u53F7\uFF1A\u5DF2\u767B\u5F55",
     layerAccountRequired: "\u8D26\u53F7\uFF1A\u9700\u8981\u767B\u5F55",
+    diagnosticsTitle: "\u8BCA\u65AD\u4FE1\u606F",
+    diagnosticsHint: "\u590D\u5236\u8131\u654F\u5FEB\u7167\u7528\u4E8E\u95EE\u9898\u62A5\u544A\uFF1A\u6807\u8BC6\u7B26\u4F1A\u622A\u77ED\uFF0C\u4EE4\u724C\u548C\u5BC6\u94A5\u4E0D\u4F1A\u5305\u542B\u3002",
+    diagnosticsCopy: "\u590D\u5236\u8BCA\u65AD\u4FE1\u606F",
+    diagnosticsCopied: "\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F\u3002",
+    diagnosticsSelect: "\u8BF7\u624B\u52A8\u9009\u62E9\u4E0B\u9762\u7684\u6587\u672C\u5E76\u590D\u5236\u3002",
+    diagnosticsFailed: "\u65E0\u6CD5\u6536\u96C6\u8BCA\u65AD\u4FE1\u606F\uFF0C\u8BF7\u91CD\u8BD5\u3002",
     layerTrustOk: "\u5BC6\u94A5\uFF1A\u5DF2\u4FE1\u4EFB",
     layerTrustPending: "\u5BC6\u94A5\uFF1A\u9700\u8981\u786E\u8BA4",
     layerTrustConflict: "\u5BC6\u94A5\uFF1A\u5DF2\u53D8\u66F4",
@@ -2793,7 +2805,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
   function createRemotePluginOptions(React) {
     let PeerTrustPanel = createPeerTrustPanel(React);
     function RemotePluginOptions(props) {
-      let { t } = props, [open, setOpen] = React.useState(props.view === "page"), [serverUrl, setServerUrl] = React.useState(""), [portsBusy, setPortsBusy] = React.useState(!1), [previewPorts, setPreviewPorts] = React.useState(""), [roleValue, setRoleValue] = React.useState("host"), [roleBusy, setRoleBusy] = React.useState(!1), [hostEmail, setHostEmail] = React.useState(""), [hostPassword, setHostPassword] = React.useState(""), [hostLoginBusy, setHostLoginBusy] = React.useState(!1), [registrationCode, setRegistrationCode] = React.useState(""), [associations, setAssociations] = React.useState({}), [loaded, setLoaded] = React.useState(!1), [writable, setWritable] = React.useState(!1), [busy, setBusy] = React.useState(!1), [terminalEnabled, setTerminalEnabled] = React.useState(!1), [terminalBusy, setTerminalBusy] = React.useState(!1), [acpBackends, setAcpBackends] = React.useState([]), [acpAvailability, setAcpAvailability] = React.useState({}), [acpChecking, setAcpChecking] = React.useState({}), [acpCheckResults, setAcpCheckResults] = React.useState({}), [addingAcp, setAddingAcp] = React.useState(!1), [acpName, setAcpName] = React.useState(""), [acpCommand, setAcpCommand] = React.useState(""), [acpArguments, setAcpArguments] = React.useState("acp"), [reconnectBusy, setReconnectBusy] = React.useState(!1), [hostStatus, setHostStatus] = React.useState(void 0), [hostName, setHostName] = React.useState(""), [hostDeviceId, setHostDeviceId] = React.useState(""), [notice, setNotice] = React.useState(void 0), [error, setError] = React.useState(void 0), [settingsView, setSettingsView] = React.useState(void 0), associationReadRun = React.useRef(0), idSuffix = React.useRef(`-${Math.random().toString(36).slice(2, 8)}`).current, fieldId = (name) => `dsh-remote-${name}${idSuffix}`, persistedServerUrl = settingsView?.config.serverUrl ?? "", association = roleValue === "client" ? associations.client : associations.host, serverDirty = settingsView !== void 0 && serverUrl !== persistedServerUrl, draftDirty = serverDirty, applyAssociations = (view) => {
+      let { t } = props, [open, setOpen] = React.useState(props.view === "page"), [serverUrl, setServerUrl] = React.useState(""), [portsBusy, setPortsBusy] = React.useState(!1), [previewPorts, setPreviewPorts] = React.useState(""), [roleValue, setRoleValue] = React.useState("host"), [roleBusy, setRoleBusy] = React.useState(!1), [hostEmail, setHostEmail] = React.useState(""), [hostPassword, setHostPassword] = React.useState(""), [hostLoginBusy, setHostLoginBusy] = React.useState(!1), [registrationCode, setRegistrationCode] = React.useState(""), [associations, setAssociations] = React.useState({}), [loaded, setLoaded] = React.useState(!1), [writable, setWritable] = React.useState(!1), [busy, setBusy] = React.useState(!1), [terminalEnabled, setTerminalEnabled] = React.useState(!1), [terminalBusy, setTerminalBusy] = React.useState(!1), [acpBackends, setAcpBackends] = React.useState([]), [diagnosticsText, setDiagnosticsText] = React.useState(""), [diagnosticsBusy, setDiagnosticsBusy] = React.useState(!1), [diagnosticsNote, setDiagnosticsNote] = React.useState(""), [acpAvailability, setAcpAvailability] = React.useState({}), [acpChecking, setAcpChecking] = React.useState({}), [acpCheckResults, setAcpCheckResults] = React.useState({}), [addingAcp, setAddingAcp] = React.useState(!1), [acpName, setAcpName] = React.useState(""), [acpCommand, setAcpCommand] = React.useState(""), [acpArguments, setAcpArguments] = React.useState("acp"), [reconnectBusy, setReconnectBusy] = React.useState(!1), [hostStatus, setHostStatus] = React.useState(void 0), [hostName, setHostName] = React.useState(""), [hostDeviceId, setHostDeviceId] = React.useState(""), [notice, setNotice] = React.useState(void 0), [error, setError] = React.useState(void 0), [settingsView, setSettingsView] = React.useState(void 0), associationReadRun = React.useRef(0), idSuffix = React.useRef(`-${Math.random().toString(36).slice(2, 8)}`).current, fieldId = (name) => `dsh-remote-${name}${idSuffix}`, persistedServerUrl = settingsView?.config.serverUrl ?? "", association = roleValue === "client" ? associations.client : associations.host, serverDirty = settingsView !== void 0 && serverUrl !== persistedServerUrl, draftDirty = serverDirty, applyAssociations = (view) => {
         let currentRole = view.config.role === "client" ? "client" : "host";
         setAssociations(view.associations ?? (view.association === void 0 ? {} : { [currentRole]: view.association }));
       }, applyView = (view, updateAssociations = !0) => {
@@ -3023,6 +3035,51 @@ Minimum version required to store current data is: ` + bestVersion + `.
           ),
           React.createElement("button", { type: "submit", className: "dshRemoteSave", disabled: busy || roleBusy || hostLoginBusy || !writable || hostEmail.trim() === "" || hostPassword === "" }, t(hostLoginBusy ? "saving" : "hostLoginSubmit"))
         )
+      ), copyDiagnostics = async () => {
+        if (!diagnosticsBusy) {
+          setDiagnosticsBusy(!0), setDiagnosticsNote("");
+          try {
+            let report = await props.control("diagnostics"), text = JSON.stringify(report, null, 2);
+            setDiagnosticsText(text);
+            try {
+              await navigator.clipboard.writeText(text), setDiagnosticsNote(t("diagnosticsCopied"));
+            } catch {
+              setDiagnosticsNote(t("diagnosticsSelect"));
+            }
+          } catch {
+            setDiagnosticsNote(t("diagnosticsFailed"));
+          } finally {
+            setDiagnosticsBusy(!1);
+          }
+        }
+      }, diagnosticsSetting = React.createElement(
+        "section",
+        { className: "dshRemoteDevelopmentSettings", "aria-label": t("diagnosticsTitle") },
+        React.createElement(
+          "div",
+          { className: "dshRemoteAuthorizationSetting" },
+          React.createElement(
+            "div",
+            null,
+            React.createElement("strong", null, t("diagnosticsTitle")),
+            React.createElement("p", null, t("diagnosticsHint"))
+          ),
+          React.createElement("button", {
+            type: "button",
+            className: "dshRemoteSave",
+            disabled: diagnosticsBusy,
+            onClick: () => void copyDiagnostics()
+          }, t(diagnosticsBusy ? "saving" : "diagnosticsCopy"))
+        ),
+        diagnosticsNote === "" ? null : React.createElement("small", { role: "status" }, diagnosticsNote),
+        diagnosticsText === "" ? null : React.createElement("textarea", {
+          readOnly: !0,
+          rows: 12,
+          className: "dshRemoteDiagnosticsText",
+          "aria-label": t("diagnosticsTitle"),
+          value: diagnosticsText,
+          onFocus: (event) => event.target.select()
+        })
       ), developmentSetting = React.createElement(
         "section",
         { className: "dshRemoteDevelopmentSettings" },
@@ -3217,6 +3274,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
             roleSetting,
             hostLoginSetting,
             developmentSetting,
+            diagnosticsSetting,
             acpSetting,
             React.createElement(
               "div",
@@ -3322,6 +3380,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
             roleSetting,
             hostLoginSetting,
             developmentSetting,
+            diagnosticsSetting,
             acpSetting,
             React.createElement("p", { className: "dshRemoteSettingsState" }, t("authorizeFromRemote")),
             writable ? null : React.createElement("p", { className: "dshRemoteError" }, t("readOnly")),
@@ -3499,7 +3558,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
       ".dshRemoteConnectBar button{min-height:32px;padding:0 12px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:inherit;font:inherit;cursor:pointer}",
       ".dshRemoteConnectBar button:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}.dshRemoteConnectBar button:disabled{opacity:.45;cursor:default}",
       ".dshRemoteConnectLayers{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:var(--dsw-alias-label-secondary)}",
-      '.dshRemoteConnectLayer{display:inline-flex;align-items:center;gap:6px}.dshRemoteConnectLayer.is-ok::before,.dshRemoteConnectLayer.is-required::before,.dshRemoteConnectLayer.is-trusted::before,.dshRemoteConnectLayer.is-required::before,.dshRemoteConnectLayer.is-conflict::before,.dshRemoteConnectLayer.is-none::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.6}.dshRemoteConnectLayer.is-conflict,.dshRemoteConnectLayer.is-none{color:var(--dsw-alias-label-tertiary)}.dshRemoteTrustHint{flex-basis:100%;margin:0;font-size:12px;line-height:1.4;color:var(--dsw-alias-label-tertiary)}',
+      '.dshRemoteConnectLayer{display:inline-flex;align-items:center;gap:6px}.dshRemoteConnectLayer.is-ok::before,.dshRemoteConnectLayer.is-required::before,.dshRemoteConnectLayer.is-trusted::before,.dshRemoteConnectLayer.is-required::before,.dshRemoteConnectLayer.is-conflict::before,.dshRemoteConnectLayer.is-none::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.6}.dshRemoteConnectLayer.is-conflict,.dshRemoteConnectLayer.is-none{color:var(--dsw-alias-label-tertiary)}.dshRemoteDiagnosticsText{width:100%;margin-top:8px;font-family:var(--dsw-alias-font-mono,monospace);font-size:12px;line-height:1.45;resize:vertical}.dshRemoteTrustHint{flex-basis:100%;margin:0;font-size:12px;line-height:1.4;color:var(--dsw-alias-label-tertiary)}',
       'html.dshRemoteTargetActive button[aria-label="\u6DFB\u52A0\u5DE5\u4F5C\u533A"],html.dshRemoteTargetActive button[aria-label="Add workspace"]{display:none!important}',
       'html.dshRemoteCodexTargetActive [data-composer-card] button[aria-haspopup="listbox"][aria-label="\u6307\u4EE4"],html.dshRemoteCodexTargetActive [data-composer-card] button[aria-haspopup="listbox"][aria-label="Commands"]{display:none!important}',
       "[data-dsh-remote-hidden-action]{display:none!important}",

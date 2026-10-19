@@ -52,6 +52,29 @@ function facade() {
   }
 }
 
+describe('control diagnostics snapshot (unit)', () => {
+  it('serves a sanitized report through the local control route', async () => {
+    const client = facade()
+    const control = unitControl(new PluginControlRuntime(resolveConfig({
+      role: 'client',
+      serverUrl: 'https://synthetic.example',
+      deviceName: 'synthetic-device',
+    }), '/unused-synthetic-unit-directory', undefined, client as unknown as ClientModeRuntime, undefined))
+    const signal = new AbortController().signal
+    const result = await control.handle('diagnostics', {}, signal, local)
+    expect(result.ok).toBe(true)
+    const report = JSON.parse(JSON.stringify((result as { value: unknown }).value)) as Record<string, unknown>
+    expect(report.role).toBe('client')
+    expect(report.schemaVersion).toBe(1)
+    expect(report.server).toEqual({ origin: 'https://synthetic.example' })
+    const text = JSON.stringify(report)
+    expect(text).not.toContain('synthetic-password')
+    // Trust counts come from the live view; no key material is present.
+    expect(report.trust).toMatchObject({ localApproval: true })
+    expect(text).not.toMatch(/[0-9A-F]{64}/)
+  })
+})
+
 describe('control trust authority transitions (unit)', () => {
   it.each(['client.account.login', 'client.account.qr.start'])(
     '%s holds the guard until settlement and never dispatches overlapping trust or account actions', async endpoint => {

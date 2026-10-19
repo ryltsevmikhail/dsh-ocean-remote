@@ -38,6 +38,9 @@ export function createRemotePluginOptions(React: ClientReact) {
     const [terminalEnabled, setTerminalEnabled] = React.useState(false)
     const [terminalBusy, setTerminalBusy] = React.useState(false)
     const [acpBackends, setAcpBackends] = React.useState<Array<{ id: string; enabled: boolean }>>([])
+    const [diagnosticsText, setDiagnosticsText] = React.useState('')
+    const [diagnosticsBusy, setDiagnosticsBusy] = React.useState(false)
+    const [diagnosticsNote, setDiagnosticsNote] = React.useState('')
     const [acpAvailability, setAcpAvailability] = React.useState<Record<string, boolean>>({})
     const [acpChecking, setAcpChecking] = React.useState<Record<string, boolean>>({})
     const [acpCheckResults, setAcpCheckResults] = React.useState<Record<string, boolean | undefined>>({})
@@ -355,6 +358,44 @@ export function createRemotePluginOptions(React: ClientReact) {
           })),
         React.createElement('button', { type: 'submit', className: 'dshRemoteSave', disabled: busy || roleBusy || hostLoginBusy || !writable || hostEmail.trim() === '' || hostPassword === '' }, t(hostLoginBusy ? 'saving' : 'hostLoginSubmit'))))
 
+    // Support snapshot: identifiers are truncated and messages are not quoted, so the
+    // operator can paste it into a report without leaking credentials.
+    const copyDiagnostics = async (): Promise<void> => {
+      if (diagnosticsBusy) return
+      setDiagnosticsBusy(true)
+      setDiagnosticsNote('')
+      try {
+        const report = await props.control<unknown>('diagnostics')
+        const text = JSON.stringify(report, null, 2)
+        setDiagnosticsText(text)
+        try {
+          await navigator.clipboard.writeText(text)
+          setDiagnosticsNote(t('diagnosticsCopied'))
+        } catch {
+          setDiagnosticsNote(t('diagnosticsSelect'))
+        }
+      } catch {
+        setDiagnosticsNote(t('diagnosticsFailed'))
+      } finally {
+        setDiagnosticsBusy(false)
+      }
+    }
+
+    const diagnosticsSetting = React.createElement('section', { className: 'dshRemoteDevelopmentSettings', 'aria-label': t('diagnosticsTitle') },
+      React.createElement('div', { className: 'dshRemoteAuthorizationSetting' },
+        React.createElement('div', null, React.createElement('strong', null, t('diagnosticsTitle')),
+          React.createElement('p', null, t('diagnosticsHint'))),
+        React.createElement('button', {
+          type: 'button', className: 'dshRemoteSave', disabled: diagnosticsBusy,
+          onClick: () => void copyDiagnostics(),
+        }, t(diagnosticsBusy ? 'saving' : 'diagnosticsCopy'))),
+      diagnosticsNote === '' ? null : React.createElement('small', { role: 'status' }, diagnosticsNote),
+      diagnosticsText === '' ? null : React.createElement('textarea', {
+        readOnly: true, rows: 12, className: 'dshRemoteDiagnosticsText',
+        'aria-label': t('diagnosticsTitle'), value: diagnosticsText,
+        onFocus: (event: Event) => (event.target as HTMLTextAreaElement).select(),
+      }))
+
     const developmentSetting = React.createElement('section', { className: 'dshRemoteDevelopmentSettings' },
       React.createElement('div', { className: 'dshRemoteAuthorizationSetting' },
         React.createElement('div', null, React.createElement('strong', null, t('terminalRemote')),
@@ -463,6 +504,7 @@ export function createRemotePluginOptions(React: ClientReact) {
               roleSetting,
               hostLoginSetting,
               developmentSetting,
+              diagnosticsSetting,
               acpSetting,
               React.createElement('div', { className: 'dshRemoteAuthorizationSetting' },
                 React.createElement('div', null,
@@ -537,6 +579,7 @@ export function createRemotePluginOptions(React: ClientReact) {
               roleSetting,
               hostLoginSetting,
               developmentSetting,
+              diagnosticsSetting,
               acpSetting,
               React.createElement('p', { className: 'dshRemoteSettingsState' }, t('authorizeFromRemote')),
               !writable ? React.createElement('p', { className: 'dshRemoteError' }, t('readOnly')) : null,

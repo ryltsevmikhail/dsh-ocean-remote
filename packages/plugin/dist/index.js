@@ -31012,6 +31012,47 @@ var ClientModeRuntime = class {
 import { hostname as hostname2 } from "node:os";
 import { execFileSync } from "node:child_process";
 
+// src/diagnostics.ts
+function originOf(serverUrl) {
+  try {
+    const url = new URL(serverUrl);
+    return url.origin;
+  } catch {
+    return void 0;
+  }
+}
+function buildDiagnostics(input3) {
+  const origin = input3.serverUrl === void 0 ? void 0 : originOf(input3.serverUrl);
+  return {
+    schemaVersion: 1,
+    generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    role: input3.role,
+    mode: input3.mode,
+    versions: {
+      plugin: input3.pluginVersion,
+      ...input3.harnessVersion === void 0 ? {} : { harness: input3.harnessVersion }
+    },
+    ...origin === void 0 ? {} : { server: { origin } },
+    ...input3.device === void 0 ? {} : {
+      device: {
+        idPrefix: input3.device.id.slice(0, 8),
+        name: input3.device.name,
+        platform: input3.device.platform
+      }
+    },
+    ...input3.trust === void 0 ? {} : { trust: input3.trust },
+    ...input3.transport === void 0 ? {} : {
+      transport: {
+        connected: input3.transport.connected,
+        ...input3.transport.mode === void 0 ? {} : { mode: input3.transport.mode },
+        ...input3.transport.target === void 0 ? {} : { targetPrefix: input3.transport.target.slice(0, 8) }
+      }
+    },
+    ...input3.features === void 0 ? {} : { features: input3.features },
+    error: { present: input3.error !== void 0 && input3.error.length > 0 }
+  };
+}
+
 // src/control-stream.ts
 var STATUS_STREAM_SAMPLE_INTERVAL_MS = 1500;
 var STATUS_STREAM_HEARTBEAT_INTERVAL_MS = 15e3;
@@ -38517,6 +38558,7 @@ var PluginControlRuntime = class {
         throw new ClientModeError("LOCAL_APPROVAL_REQUIRED", "Peer approval is available only through authenticated local HTTP.");
       }
       if (endpoint !== "settings.server.set") await this.serverSwitchFlight;
+      if (endpoint === "diagnostics") return ok3(this.diagnosticsReport(authority?.localApproval === true));
       if (endpoint === "trust.status") return ok3(this.trustView(authority?.localApproval === true));
       if (endpoint === "trust.revoke") {
         if (authority?.localApproval !== true) {
@@ -38897,6 +38939,51 @@ var PluginControlRuntime = class {
     } finally {
       await identities.close();
     }
+  }
+  /** Support snapshot: safe to paste into a report, useless for impersonation. */
+  diagnosticsReport(localApproval) {
+    const status2 = this.host !== void 0 ? this.hostOnlyStatus() : this.clientStatus();
+    const trust = this.trustView(localApproval);
+    const count = (value) => Array.isArray(value) ? value.length : 0;
+    const roleView = (role) => trust[role] === void 0 ? void 0 : trust[role];
+    const current = roleView(this.config.role === "client" ? "client" : "host");
+    return { ...buildDiagnostics({
+      role: this.config.role === "client" ? "client" : "host",
+      mode: typeof status2.mode === "string" ? status2.mode : "local",
+      pluginVersion: PLUGIN_VERSION,
+      ...typeof status2.harnessVersion === "string" ? { harnessVersion: status2.harnessVersion } : {},
+      ...this.config.serverUrl === void 0 ? {} : { serverUrl: this.config.serverUrl },
+      ...typeof status2.deviceId === "string" ? { device: { id: status2.deviceId, name: this.config.deviceName, platform: process.platform } } : {},
+      trust: {
+        trusted: count(current?.trusted),
+        pending: count(current?.pending),
+        available: current?.available === true,
+        localApproval
+      },
+      transport: {
+        connected: status2.connected === true,
+        ...typeof status2.connectedVia === "string" ? { mode: status2.connectedVia } : {},
+        ...typeof status2.connectedTargetDeviceId === "string" ? { target: status2.connectedTargetDeviceId } : {}
+      },
+      ...typeof status2.error === "string" ? { error: status2.error } : {}
+    }) };
+  }
+  /** Client-role status lives in the remote runtime; keep this view conservative. */
+  clientStatus() {
+    const view = this.client;
+    if (view === void 0) return {};
+    const status2 = view.status === void 0 ? void 0 : view.status();
+    if (status2 === void 0 || typeof status2 !== "object") return {};
+    const value = status2;
+    return {
+      mode: value.mode,
+      connected: value.connected,
+      ...typeof value.connectedVia === "string" ? { connectedVia: value.connectedVia } : {},
+      ...typeof value.connectedTargetDeviceId === "string" ? { connectedTargetDeviceId: value.connectedTargetDeviceId } : {},
+      ...typeof value.deviceId === "string" ? { deviceId: value.deviceId } : {},
+      ...typeof value.error === "string" ? { error: value.error } : {},
+      ...typeof value.harnessVersion === "string" ? { harnessVersion: value.harnessVersion } : {}
+    };
   }
   hostOnlyStatus() {
     return {

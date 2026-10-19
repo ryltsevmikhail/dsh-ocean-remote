@@ -2,6 +2,8 @@ import { hostname } from 'node:os'
 import { execFileSync } from 'node:child_process'
 import type { RpcResult } from '@deepseek-ai/dsh-host-apiproxy/api'
 import { resolveConfig, type Config, type ConfigInput, type ResolvedConfig } from './config.js'
+import { buildDiagnostics } from './diagnostics.js'
+import { PLUGIN_VERSION } from './version.js'
 import {
   ClientModeError,
   type ClientModeRuntime,
@@ -104,6 +106,7 @@ export class PluginControlRuntime {
       }
       // A request arriving during replacement must use the new Server runtime.
       if (endpoint !== 'settings.server.set') await this.serverSwitchFlight
+      if (endpoint === 'diagnostics') return ok(this.diagnosticsReport(authority?.localApproval === true))
       if (endpoint === 'trust.status') return ok(this.trustView(authority?.localApproval === true))
       if (endpoint === 'trust.revoke') {
         // Same local-only authority as approve/reject: a remote peer must not be able
@@ -517,6 +520,56 @@ export class PluginControlRuntime {
       }
     } finally {
       await identities.close()
+    }
+  }
+
+  /** Support snapshot: safe to paste into a report, useless for impersonation. */
+  private diagnosticsReport(localApproval: boolean): Record<string, unknown> {
+    const status = this.host !== undefined ? this.hostOnlyStatus() : this.clientStatus()
+    const trust = this.trustView(localApproval)
+    const count = (value: unknown): number => (Array.isArray(value) ? value.length : 0)
+    const roleView = (role: 'host' | 'client'): Record<string, unknown> | undefined =>
+      (trust[role] === undefined ? undefined : trust[role] as Record<string, unknown>)
+    const current = roleView(this.config.role === 'client' ? 'client' : 'host')
+    return { ...buildDiagnostics({
+      role: this.config.role === 'client' ? 'client' : 'host',
+      mode: typeof status.mode === 'string' ? status.mode : 'local',
+      pluginVersion: PLUGIN_VERSION,
+      ...(typeof status.harnessVersion === 'string' ? { harnessVersion: status.harnessVersion } : {}),
+      ...(this.config.serverUrl === undefined ? {} : { serverUrl: this.config.serverUrl }),
+      ...(typeof status.deviceId === 'string'
+        ? { device: { id: status.deviceId, name: this.config.deviceName, platform: process.platform } }
+        : {}),
+      trust: {
+        trusted: count(current?.trusted),
+        pending: count(current?.pending),
+        available: current?.available === true,
+        localApproval,
+      },
+      transport: {
+        connected: status.connected === true,
+        ...(typeof status.connectedVia === 'string' ? { mode: status.connectedVia } : {}),
+        ...(typeof status.connectedTargetDeviceId === 'string' ? { target: status.connectedTargetDeviceId } : {}),
+      },
+      ...(typeof status.error === 'string' ? { error: status.error } : {}),
+    }) }
+  }
+
+  /** Client-role status lives in the remote runtime; keep this view conservative. */
+  private clientStatus(): Record<string, unknown> {
+    const view = this.client
+    if (view === undefined) return {}
+    const status = view.status === undefined ? undefined : view.status()
+    if (status === undefined || typeof status !== 'object') return {}
+    const value = status as Record<string, unknown>
+    return {
+      mode: value.mode,
+      connected: value.connected,
+      ...(typeof value.connectedVia === 'string' ? { connectedVia: value.connectedVia } : {}),
+      ...(typeof value.connectedTargetDeviceId === 'string' ? { connectedTargetDeviceId: value.connectedTargetDeviceId } : {}),
+      ...(typeof value.deviceId === 'string' ? { deviceId: value.deviceId } : {}),
+      ...(typeof value.error === 'string' ? { error: value.error } : {}),
+      ...(typeof value.harnessVersion === 'string' ? { harnessVersion: value.harnessVersion } : {}),
     }
   }
 
