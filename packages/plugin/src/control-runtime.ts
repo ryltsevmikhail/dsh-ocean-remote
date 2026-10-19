@@ -525,7 +525,7 @@ export class PluginControlRuntime {
 
   /** Support snapshot: safe to paste into a report, useless for impersonation. */
   private diagnosticsReport(localApproval: boolean): Record<string, unknown> {
-    const status = this.host !== undefined ? this.hostOnlyStatus() : this.clientStatus()
+    const status = this.config.role === 'client' ? this.clientStatus() : this.hostOnlyStatus()
     const trust = this.trustView(localApproval)
     const count = (value: unknown): number => (Array.isArray(value) ? value.length : 0)
     const roleView = (role: 'host' | 'client'): Record<string, unknown> | undefined =>
@@ -563,23 +563,26 @@ export class PluginControlRuntime {
     if (status === undefined || typeof status !== 'object') return {}
     const value = status as Record<string, unknown>
     return {
-      mode: value.mode,
-      connected: value.connected,
-      ...(typeof value.connectedVia === 'string' ? { connectedVia: value.connectedVia } : {}),
+      mode: typeof value.mode === 'string' ? value.mode : value.connected === true ? 'remote' : 'local',
+      connected: value.connected === true,
+      // Client status publishes the negotiated transport name instead of a "via" label.
+      ...(typeof value.transport === 'string' ? { connectedVia: value.transport } : {}),
       ...(typeof value.connectedTargetDeviceId === 'string' ? { connectedTargetDeviceId: value.connectedTargetDeviceId } : {}),
       ...(typeof value.deviceId === 'string' ? { deviceId: value.deviceId } : {}),
       ...(typeof value.error === 'string' ? { error: value.error } : {}),
-      ...(typeof value.harnessVersion === 'string' ? { harnessVersion: value.harnessVersion } : {}),
     }
   }
 
   private hostOnlyStatus(): Record<string, unknown> {
+    const host = this.host?.hostStatus()
     return {
       mode: 'local',
-      available: false,
+      available: host?.online === true,
       deviceName: hostname(),
       hostAuthorizationAvailable: this.host !== undefined,
-      ...(this.host === undefined ? {} : { host: this.host.hostStatus() }),
+      ...(host === undefined ? {} : { host }),
+      ...(typeof host?.deviceId === 'string' ? { deviceId: host.deviceId } : {}),
+      ...(typeof host?.error === 'string' ? { error: host.error } : {}),
     }
   }
 }

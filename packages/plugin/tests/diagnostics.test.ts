@@ -39,6 +39,18 @@ describe('support diagnostics', () => {
     expect(text).not.toContain('pass')
   })
 
+  it('never emits identifiers longer than a short prefix', () => {
+    const uuid = 'ABCDEF12-3456-4789-8abc-def012345678'
+    const report = buildDiagnostics({
+      role: 'host', mode: 'local', pluginVersion: '0.5.13',
+      device: { id: uuid, name: 'desktop', platform: 'linux' },
+      transport: { connected: true, target: uuid },
+    })
+    const text = JSON.stringify(report)
+    expect(text).not.toContain(uuid)
+    for (const prefix of [report.device?.idPrefix, report.transport?.targetPrefix]) expect(prefix).toHaveLength(8)
+  })
+
   it('omits optional sections instead of inventing values', () => {
     const report = buildDiagnostics({ role: 'host', mode: 'local', pluginVersion: '0.5.13' })
     expect(report).not.toHaveProperty('server')

@@ -53,6 +53,21 @@ function facade() {
 }
 
 describe('control diagnostics snapshot (unit)', () => {
+  it('describes the Client role even though a Host runtime object always exists', async () => {
+    const client = facade()
+    // Production always constructs a Host runtime, so the role must drive the snapshot.
+    const host = { ...facade(), hostStatus: () => ({ deviceId: 'synthetic-host-id', online: false, configured: true, reconnecting: false, authorized: true, accountRequired: false }) }
+    const control = unitControl(new PluginControlRuntime(resolveConfig({
+      role: 'client', serverUrl: 'https://synthetic.example', deviceName: 'synthetic-device',
+    }), '/unused-synthetic-unit-directory', undefined, client as unknown as ClientModeRuntime, host as unknown as HostAuthorizationControl))
+    const result = await control.handle('diagnostics', {}, new AbortController().signal, local)
+    const report = (result as { value: Record<string, unknown> }).value
+    expect(report.role).toBe('client')
+    // Not the Host's "local" view: the Client runtime supplies these.
+    expect(report.device).toBeUndefined()
+    expect(report.trust).toMatchObject({ localApproval: true })
+  })
+
   it('serves a sanitized report through the local control route', async () => {
     const client = facade()
     const control = unitControl(new PluginControlRuntime(resolveConfig({
