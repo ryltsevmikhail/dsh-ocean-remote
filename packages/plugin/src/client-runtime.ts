@@ -83,6 +83,7 @@ export class ClientModeRuntime {
   private identity?: HostIdentity
   private connected?: ConnectedRemote
   private pendingWorkspaceSelection?: RemoteWorkspaceSelection
+  private lastDrop?: { deviceId: string; name?: string; at: number }
   private codexVirtual?: CodexVirtualHarness
   private codexVirtualSelection?: { targetDeviceId: string; workspaceId: string }
   private readonly codexOpenedSessions = new Map<string, string>()
@@ -183,6 +184,7 @@ export class ClientModeRuntime {
       get identities() { return owner.identities },
       get peerApprovals() { return owner.peerApprovals },
       isActive: () => !owner.closed && owner.peerApprovals !== undefined,
+      onUnexpectedClose: targetDeviceId => owner.handleUnexpectedClose(targetDeviceId),
     })
     this.control = new ClientControl({
       detailedStatus: (...args) => owner.detailedStatus(...args),
@@ -305,6 +307,7 @@ export class ClientModeRuntime {
       backend: this.cursorVirtual !== undefined
         ? this.acpVirtualBackend
         : this.codexVirtual === undefined ? 'harness' : 'codex',
+      ...(this.lastDrop === undefined ? {} : { lastDrop: { ...this.lastDrop } }),
       hostAuthorizationAvailable: this.host !== undefined,
       ...(this.host === undefined ? {} : { host: this.host.hostStatus() }),
     }
@@ -462,6 +465,7 @@ export class ClientModeRuntime {
       throw new ClientModeError('CANCELLED', 'The Remote connection request was superseded or closed.')
     }
     this.connected = next
+    this.lastDrop = undefined
     this.connection.clearConnectionProgress(next.progressRunId)
     this.pendingWorkspaceSelection = undefined
     await this.closeCodexVirtual()
@@ -765,7 +769,17 @@ export class ClientModeRuntime {
     return this.closing
   }
 
+  /** An established session closed without an operator action (network, revoke, crash). */
+  private handleUnexpectedClose(targetDeviceId: string): void {
+    // Only a session that actually was established can be reported as dropped.
+    if (this.closed || this.connected === undefined) return
+    // The Host list is not cached here; the UI resolves the display name by id.
+    this.lastDrop = { deviceId: targetDeviceId, at: Date.now() }
+    this.logger.warn('remote Harness session dropped unexpectedly', { targetDeviceId: shortId(targetDeviceId) })
+  }
+
   private async leaveRemote(): Promise<void> {
+    this.lastDrop = undefined
     this.remoteLifetime.abort(new ClientModeError('CANCELLED', 'The Remote connection was closed.'))
     this.remoteLifetime = new AbortController()
     const previous = this.connected

@@ -914,6 +914,22 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
     // transport layer is satisfied, so a live A cannot mask a failed attempt to B.
     const layerDevice = pickLayerDevice({ selected: selectedHost, failed: failedHost, connecting: connectingHost, connected: connectedDevice })
     const layerStates = connectionLayers({ needsAuthorization, device: layerDevice, connectedTargetDeviceId: connectedTargetId })
+    // An unexpected drop keeps the Host's work intact; offer one explicit way back.
+    const droppedHost = status?.lastDrop === undefined
+      ? undefined
+      : listedHosts.find(device => device.deviceId === status!.lastDrop!.deviceId)
+        ?? failedHost
+    const dropBar = droppedHost === undefined || status?.mode === 'remote'
+      ? null
+      : React.createElement('div', { className: 'dshRemoteConnectBar isDrop', role: 'status' },
+        React.createElement('div', { className: 'dshRemoteConnectText' },
+          React.createElement('strong', null, t('dropTitle')),
+          React.createElement('span', null, t('dropBody', { name: droppedHost.name }))),
+        React.createElement('button', {
+          type: 'button', disabled: busy,
+          onClick: () => void selectHost(droppedHost),
+        }, t('dropReconnect')))
+
     const layerRow = React.createElement('div', { className: 'dshRemoteConnectLayers' },
       ...layerStates.map(item => React.createElement('span', { key: item.key, className: `dshRemoteConnectLayer is-${item.state}` }, t(item.key))),
       layerStates.some(item => item.state === 'conflict')
@@ -993,6 +1009,7 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
         React.createElement('main', { className: 'dshRemotePageBody' },
           // Account/trust/transport stay visible even before sign-in succeeds.
           layerRow,
+          dropBar,
           status?.mode === 'remote' ? React.createElement('button', {
             type: 'button',
             className: 'dshRemoteLocalLink',

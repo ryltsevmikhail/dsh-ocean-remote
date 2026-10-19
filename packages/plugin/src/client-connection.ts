@@ -51,6 +51,8 @@ export interface ClientConnectionContext {
   readonly gatewaySwitch: TypertGatewaySwitch
   readonly peerApprovals?: PeerApprovalQueue
   readonly isActive?: () => boolean
+  /** Called when an established session closes without the operator asking for it. */
+  readonly onUnexpectedClose?: (targetDeviceId: string) => void
   readonly identities: IdentityStore
 }
 
@@ -193,6 +195,8 @@ export class ClientConnection {
         this.context.logger.warn('remote Harness transport closed; keeping Remote authority disconnected', {
           targetDeviceId: shortId(target.deviceId),
         })
+        // Reaching here means the operator did not ask to leave: surface the drop.
+        this.context.onUnexpectedClose?.(target.deviceId)
       })
       const connectionDetails = await connectedTransport.connectionDetails().catch(() => undefined)
       this.context.logger.info('remote Harness transport ready', {

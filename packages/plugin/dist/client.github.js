@@ -1680,6 +1680,9 @@ Minimum version required to store current data is: ` + bestVersion + `.
     diagnosticsCopied: "Copied to the clipboard.",
     diagnosticsSelect: "Select the text below and copy it manually.",
     diagnosticsFailed: "Could not collect diagnostics. Try again.",
+    dropTitle: "Connection lost",
+    dropBody: "The session with {name} closed unexpectedly. Work running on the Host is not lost.",
+    dropReconnect: "Connect again",
     layerTrustOk: "Key: trusted",
     layerTrustPending: "Key: approval required",
     layerTrustConflict: "Key: changed",
@@ -1981,6 +1984,9 @@ Minimum version required to store current data is: ` + bestVersion + `.
     diagnosticsCopied: "\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F\u3002",
     diagnosticsSelect: "\u8BF7\u624B\u52A8\u9009\u62E9\u4E0B\u9762\u7684\u6587\u672C\u5E76\u590D\u5236\u3002",
     diagnosticsFailed: "\u65E0\u6CD5\u6536\u96C6\u8BCA\u65AD\u4FE1\u606F\uFF0C\u8BF7\u91CD\u8BD5\u3002",
+    dropTitle: "\u8FDE\u63A5\u5DF2\u4E2D\u65AD",
+    dropBody: "\u4E0E {name} \u7684\u4F1A\u8BDD\u610F\u5916\u7ED3\u675F\u3002\u4E3B\u673A\u4E0A\u6B63\u5728\u8FD0\u884C\u7684\u5DE5\u4F5C\u4E0D\u4F1A\u4E22\u5931\u3002",
+    dropReconnect: "\u91CD\u65B0\u8FDE\u63A5",
     layerTrustOk: "\u5BC6\u94A5\uFF1A\u5DF2\u4FE1\u4EFB",
     layerTrustPending: "\u5BC6\u94A5\uFF1A\u9700\u8981\u786E\u8BA4",
     layerTrustConflict: "\u5BC6\u94A5\uFF1A\u5DF2\u53D8\u66F4",
@@ -3554,7 +3560,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
   function installStyle(clientModuleId2) {
     let style = document.createElement("style");
     return style.dataset.plugin = clientModuleId2, style.dataset.pluginCss = "dsh-remote", style.textContent = [
-      ".dshRemoteConnectBar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:6px 0;color:var(--dsw-alias-label-secondary);font-size:13px}",
+      ".dshRemoteConnectBar.isDrop{border-color:var(--dsw-alias-label-tertiary)}.dshRemoteConnectBar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:6px 0;color:var(--dsw-alias-label-secondary);font-size:13px}",
       ".dshRemoteConnectBar button{min-height:32px;padding:0 12px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:inherit;font:inherit;cursor:pointer}",
       ".dshRemoteConnectBar button:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}.dshRemoteConnectBar button:disabled{opacity:.45;cursor:default}",
       ".dshRemoteConnectLayers{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:var(--dsw-alias-label-secondary)}",
@@ -4040,7 +4046,21 @@ Minimum version required to store current data is: ` + bestVersion + `.
             ))
           )
         ) : null
-      ) : null, listedHosts = connectingHost === void 0 ? devices : [connectingHost], connectedTargetId = status?.connected === !0 ? status.connectedTargetDeviceId : void 0, connectedDevice = connectedTargetId === void 0 ? void 0 : listedHosts.find((device) => device.deviceId === connectedTargetId) ?? (selectedHost?.deviceId === connectedTargetId ? selectedHost : void 0), layerDevice = pickLayerDevice({ selected: selectedHost, failed: failedHost, connecting: connectingHost, connected: connectedDevice }), layerStates = connectionLayers({ needsAuthorization, device: layerDevice, connectedTargetDeviceId: connectedTargetId }), layerRow = React.createElement(
+      ) : null, listedHosts = connectingHost === void 0 ? devices : [connectingHost], connectedTargetId = status?.connected === !0 ? status.connectedTargetDeviceId : void 0, connectedDevice = connectedTargetId === void 0 ? void 0 : listedHosts.find((device) => device.deviceId === connectedTargetId) ?? (selectedHost?.deviceId === connectedTargetId ? selectedHost : void 0), layerDevice = pickLayerDevice({ selected: selectedHost, failed: failedHost, connecting: connectingHost, connected: connectedDevice }), layerStates = connectionLayers({ needsAuthorization, device: layerDevice, connectedTargetDeviceId: connectedTargetId }), droppedHost = status?.lastDrop === void 0 ? void 0 : listedHosts.find((device) => device.deviceId === status.lastDrop.deviceId) ?? failedHost, dropBar = droppedHost === void 0 || status?.mode === "remote" ? null : React.createElement(
+        "div",
+        { className: "dshRemoteConnectBar isDrop", role: "status" },
+        React.createElement(
+          "div",
+          { className: "dshRemoteConnectText" },
+          React.createElement("strong", null, t("dropTitle")),
+          React.createElement("span", null, t("dropBody", { name: droppedHost.name }))
+        ),
+        React.createElement("button", {
+          type: "button",
+          disabled: busy,
+          onClick: () => void selectHost(droppedHost)
+        }, t("dropReconnect"))
+      ), layerRow = React.createElement(
         "div",
         { className: "dshRemoteConnectLayers" },
         ...layerStates.map((item) => React.createElement("span", { key: item.key, className: `dshRemoteConnectLayer is-${item.state}` }, t(item.key))),
@@ -4142,6 +4162,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
             { className: "dshRemotePageBody" },
             // Account/trust/transport stay visible even before sign-in succeeds.
             layerRow,
+            dropBar,
             status?.mode === "remote" ? React.createElement("button", {
               type: "button",
               className: "dshRemoteLocalLink",

@@ -30,6 +30,35 @@ const cleanupScenario1 = async () => {
 }
 afterEach(cleanupScenario1)
 
+describe('ClientModeRuntime drop notice', () => {
+  it('exposes an unexpected drop and clears it on an explicit return to local mode', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'dsh-client-drop-'))
+    directories.push(directory)
+    const runtime = new ClientModeRuntime(config(), new IdentityStore({ directory }),
+      { bindIdentity: vi.fn(), revokeCurrentDevice: vi.fn(async () => undefined) } as unknown as ClientServerApi,
+      apiProxy(), gatewayWithCarrier(), logger())
+    try {
+      await runtime.start()
+      const state = runtime as unknown as {
+        connected: unknown
+        handleUnexpectedClose(targetDeviceId: string): void
+      }
+      // An established session is required: a drop while local is not reported.
+      state.handleUnexpectedClose('host-device-1')
+      expect(runtime.status().lastDrop).toBeUndefined()
+      state.connected = {
+        client: { close: vi.fn(async () => undefined), getStats: () => ({ mode: 'Relay', connected: true }) },
+        target: { deviceId: 'host-device-1', name: 'Workstation' },
+        features: {},
+      }
+      state.handleUnexpectedClose('host-device-1')
+      expect(runtime.status().lastDrop).toMatchObject({ deviceId: 'host-device-1' })
+      await runtime.setMode('local')
+      expect(runtime.status().lastDrop).toBeUndefined()
+    } finally { await runtime.close() }
+  })
+})
+
 describe('ClientModeRuntime Host account control', () => {
   it('retires pending connections on explicit exit, account sign-out and runtime shutdown', async () => {
     await runScenarios((['exit', 'sign-out', 'shutdown'] as const).flatMap(action =>

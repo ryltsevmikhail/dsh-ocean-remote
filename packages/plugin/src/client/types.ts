@@ -22,6 +22,11 @@ export interface FileViewerClientServiceLike {
 
 export type RemoteTransportPreference = 'lan' | 'p2p' | 'turn' | 'relay'
 
+export interface RemoteDropNotice {
+  deviceId: string
+  at: number
+}
+
 export interface RemoteStatus {
   mode: 'local' | 'remote'
   backend?: 'harness' | 'codex' | 'cursor' | 'antigravity' | 'pi' | 'opencode' | 'claude'
@@ -34,6 +39,8 @@ export interface RemoteStatus {
   serverUrl?: string
   connected?: boolean
   connectedTargetDeviceId?: string
+  /** Set when an established session closed without an operator action. */
+  lastDrop?: { deviceId: string; at: number }
   transport?: 'LAN' | 'P2P' | 'TURN' | 'Relay' | 'Disconnected'
   preferredTransports?: RemoteTransportPreference[]
   connectionProgress?: {

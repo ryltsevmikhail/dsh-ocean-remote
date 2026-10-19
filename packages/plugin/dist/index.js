@@ -23059,6 +23059,7 @@ var ClientConnection = class {
         this.context.logger.warn("remote Harness transport closed; keeping Remote authority disconnected", {
           targetDeviceId: shortId(target2.deviceId)
         });
+        this.context.onUnexpectedClose?.(target2.deviceId);
       });
       const connectionDetails = await connectedTransport.connectionDetails().catch(() => void 0);
       this.context.logger.info("remote Harness transport ready", {
@@ -30230,7 +30231,8 @@ var ClientModeRuntime = class {
       get peerApprovals() {
         return owner.peerApprovals;
       },
-      isActive: () => !owner.closed && owner.peerApprovals !== void 0
+      isActive: () => !owner.closed && owner.peerApprovals !== void 0,
+      onUnexpectedClose: (targetDeviceId) => owner.handleUnexpectedClose(targetDeviceId)
     });
     this.control = new ClientControl({
       detailedStatus: (...args) => owner.detailedStatus(...args),
@@ -30305,6 +30307,7 @@ var ClientModeRuntime = class {
   identity;
   connected;
   pendingWorkspaceSelection;
+  lastDrop;
   codexVirtual;
   codexVirtualSelection;
   codexOpenedSessions = /* @__PURE__ */ new Map();
@@ -30431,6 +30434,7 @@ var ClientModeRuntime = class {
       remoteFeatures: this.connected?.features ?? remoteHostFeatures(),
       ...this.pendingWorkspaceSelection === void 0 ? {} : { workspaceSelection: { ...this.pendingWorkspaceSelection } },
       backend: this.cursorVirtual !== void 0 ? this.acpVirtualBackend : this.codexVirtual === void 0 ? "harness" : "codex",
+      ...this.lastDrop === void 0 ? {} : { lastDrop: { ...this.lastDrop } },
       hostAuthorizationAvailable: this.host !== void 0,
       ...this.host === void 0 ? {} : { host: this.host.hostStatus() }
     };
@@ -30569,6 +30573,7 @@ var ClientModeRuntime = class {
       throw new ClientModeError("CANCELLED", "The Remote connection request was superseded or closed.");
     }
     this.connected = next;
+    this.lastDrop = void 0;
     this.connection.clearConnectionProgress(next.progressRunId);
     this.pendingWorkspaceSelection = void 0;
     await this.closeCodexVirtual();
@@ -30842,7 +30847,14 @@ var ClientModeRuntime = class {
     })();
     return this.closing;
   }
+  /** An established session closed without an operator action (network, revoke, crash). */
+  handleUnexpectedClose(targetDeviceId) {
+    if (this.closed || this.connected === void 0) return;
+    this.lastDrop = { deviceId: targetDeviceId, at: Date.now() };
+    this.logger.warn("remote Harness session dropped unexpectedly", { targetDeviceId: shortId(targetDeviceId) });
+  }
   async leaveRemote() {
+    this.lastDrop = void 0;
     this.remoteLifetime.abort(new ClientModeError("CANCELLED", "The Remote connection was closed."));
     this.remoteLifetime = new AbortController();
     const previous = this.connected;
