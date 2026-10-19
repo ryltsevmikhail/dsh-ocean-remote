@@ -1,4 +1,5 @@
 import { RemoteClientCore } from '@dsh-remote/client-core'
+import { PEER_KEEPALIVE_TIMEOUT_MS, PeerLiveness } from './peer-liveness.js'
 import type { RtcPeerConnectionFactory } from '@dsh-remote/webrtc'
 import { AdaptiveTransport } from '@dsh-remote/webrtc'
 import { ApiProxySwitch } from './api-proxy-switch.js'
@@ -70,6 +71,7 @@ export class ClientConnection {
     assertCurrent()
     const identity = this.context.requireIdentity()
     let client: RemoteClientCore | undefined
+    let liveness: PeerLiveness | undefined
     // Keep cancellation attached through capability discovery as well as the
     // handshake: the candidate is not yet owned by context.connected there.
     const onAbort = () => { void client?.close().catch(() => undefined) }
@@ -161,6 +163,14 @@ export class ClientConnection {
       }
       const connectedClient = client
       const connectedTransport = transport
+      // The relay never tells the Client that the Host dropped the tunnel, so probe it.
+      const keepalive = new PeerLiveness({
+        probe: signal => connectedClient.rpc('host.describe', {}, signal, { timeoutMs: PEER_KEEPALIVE_TIMEOUT_MS }),
+        onDead: failure => {
+          this.context.logger.warn('remote Harness peer stopped answering', { targetDeviceId: shortId(target.deviceId), failure })
+          void connectedClient.close().catch(() => undefined)
+        },
+      })
       const connectedPreference = transportPreferenceForMode(connectedClient.getStats().mode)
       this.updateConnectionProgress(
         progressRunId,
@@ -168,6 +178,7 @@ export class ClientConnection {
         connectedPreference === undefined ? undefined : [connectedPreference],
       )
       connectedClient.onClose(() => {
+        keepalive.stop()
         if (this.context.connected?.client !== connectedClient) return
         void this.context.closePreview()
         this.context.connected = undefined
@@ -199,6 +210,8 @@ export class ClientConnection {
         })
       }
       const features = await probeRemoteHostFeatures(connectedClient, serverDevice.clientVersion)
+      keepalive.start()
+      liveness = keepalive
       signal?.throwIfAborted()
       return {
         client: connectedClient,
@@ -210,6 +223,7 @@ export class ClientConnection {
         ...(serverDevice.harnessVersion === undefined ? {} : { harnessVersion: serverDevice.harnessVersion }),
       }
     } catch (error) {
+      liveness?.stop()
       this.clearConnectionProgress(progressRunId)
       await client?.close().catch(() => undefined)
       throw error

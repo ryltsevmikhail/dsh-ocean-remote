@@ -22730,6 +22730,55 @@ var ClientCodexStreams = class {
   }
 };
 
+// src/peer-liveness.ts
+var PEER_KEEPALIVE_INTERVAL_MS = 2e4;
+var PEER_KEEPALIVE_TIMEOUT_MS = 12e3;
+var PeerLiveness = class {
+  constructor(options) {
+    this.options = options;
+  }
+  timer;
+  active;
+  stopped = false;
+  start() {
+    if (this.stopped || this.timer !== void 0) return;
+    const interval = this.options.intervalMs ?? PEER_KEEPALIVE_INTERVAL_MS;
+    this.timer = setInterval(() => void this.tick(), interval);
+    this.timer.unref?.();
+  }
+  stop() {
+    if (this.stopped) return;
+    this.stopped = true;
+    if (this.timer !== void 0) {
+      clearInterval(this.timer);
+      this.timer = void 0;
+    }
+    this.active?.abort();
+    this.active = void 0;
+  }
+  fail(failure4) {
+    if (this.stopped) return;
+    this.stop();
+    this.options.onDead(failure4);
+  }
+  async tick() {
+    if (this.stopped || this.active !== void 0) return;
+    const controller = new AbortController();
+    this.active = controller;
+    const timer = setTimeout(() => controller.abort(new Error("peer keepalive timeout")), this.options.timeoutMs ?? PEER_KEEPALIVE_TIMEOUT_MS);
+    timer.unref?.();
+    try {
+      await this.options.probe(controller.signal);
+      if (controller.signal.aborted) this.fail("timeout");
+    } catch {
+      this.fail(controller.signal.aborted ? "timeout" : "error");
+    } finally {
+      clearTimeout(timer);
+      if (this.active === controller) this.active = void 0;
+    }
+  }
+};
+
 // src/client-secure-transport.ts
 var ClientSecureTransport = class {
   constructor(inner, identity2, host) {
@@ -22894,6 +22943,7 @@ var ClientConnection = class {
     assertCurrent();
     const identity2 = this.context.requireIdentity();
     let client;
+    let liveness;
     const onAbort = () => {
       void client?.close().catch(() => void 0);
     };
@@ -22979,6 +23029,13 @@ var ClientConnection = class {
       }
       const connectedClient = client;
       const connectedTransport = transport;
+      const keepalive = new PeerLiveness({
+        probe: (signal2) => connectedClient.rpc("host.describe", {}, signal2, { timeoutMs: PEER_KEEPALIVE_TIMEOUT_MS }),
+        onDead: (failure4) => {
+          this.context.logger.warn("remote Harness peer stopped answering", { targetDeviceId: shortId(target2.deviceId), failure: failure4 });
+          void connectedClient.close().catch(() => void 0);
+        }
+      });
       const connectedPreference = transportPreferenceForMode(connectedClient.getStats().mode);
       this.updateConnectionProgress(
         progressRunId,
@@ -22986,6 +23043,7 @@ var ClientConnection = class {
         connectedPreference === void 0 ? void 0 : [connectedPreference]
       );
       connectedClient.onClose(() => {
+        keepalive.stop();
         if (this.context.connected?.client !== connectedClient) return;
         void this.context.closePreview();
         this.context.connected = void 0;
@@ -23017,6 +23075,8 @@ var ClientConnection = class {
         });
       }
       const features = await probeRemoteHostFeatures(connectedClient, serverDevice.clientVersion);
+      keepalive.start();
+      liveness = keepalive;
       signal?.throwIfAborted();
       return {
         client: connectedClient,
@@ -23028,6 +23088,7 @@ var ClientConnection = class {
         ...serverDevice.harnessVersion === void 0 ? {} : { harnessVersion: serverDevice.harnessVersion }
       };
     } catch (error) {
+      liveness?.stop();
       this.clearConnectionProgress(progressRunId);
       await client?.close().catch(() => void 0);
       throw error;
