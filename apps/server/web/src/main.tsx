@@ -86,7 +86,7 @@ function App() {
   }
 
   async function revoke(device: Device) {
-    if (busy || revoking !== undefined) return
+    if (busy || loadingDevices || revoking !== undefined) return
     // Irreversible for that device: require an explicit confirmation naming it.
     if (!window.confirm(`Отозвать устройство «${device.name}»? Оно потеряет доступ к этому серверу и должно будет авторизоваться заново.`)) return
     setRevoking(device.deviceId)
@@ -150,8 +150,8 @@ function App() {
                 <th scope="row">{item.name}</th><td><span className={`device-status ${item.online ? 'online' : ''}`}>{item.online ? 'Онлайн' : 'Офлайн'}</span></td>
                 <td>{item.role === 'host' ? 'Хост' : 'Клиент'}</td><td>{item.platform}</td>
                 <td>{item.clientVersion}</td><td>{item.harnessVersion ?? '—'}</td>
-                <td><button type="button" className="revoke" disabled={busy || revoking !== undefined}
-                  onClick={() => void revoke(item)}>{revoking === item.deviceId ? 'Отзываем…' : 'Отозвать'}</button></td>
+                <td><button type="button" className="revoke" disabled={busy || loadingDevices || revoking !== undefined}
+                  aria-label={`Отозвать устройство ${item.name}`} onClick={() => void revoke(item)}>{revoking === item.deviceId ? 'Отзываем…' : 'Отозвать'}</button></td>
               </tr>)}</tbody>
             </table>
             {!items.length && <div className="empty-state"><span className="empty-symbol" aria-hidden="true">↔</span><h3>Пока ни одного устройства</h3><p>Зарегистрированных устройств пока нет.<br />Войдите в этот аккаунт через плагин DSH — и ваше устройство появится здесь.</p></div>}

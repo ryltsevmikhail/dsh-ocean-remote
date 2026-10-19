@@ -103,7 +103,7 @@ tbody th { font-weight: 600; }
 }
 
 /* Owner-only device actions: quiet button that still reads as destructive. */
-.device-table button.revoke{min-height:32px;padding:0 12px;border:1px solid var(--line, #d8d8d8);border-radius:8px;background:transparent;color:inherit;font:inherit;font-size:13px;cursor:pointer}
-.device-table button.revoke:hover:not(:disabled){border-color:#b42318;color:#b42318}
+.device-table button.revoke{min-height:32px;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:transparent;color:inherit;font:inherit;font-size:13px;cursor:pointer}
+.device-table button.revoke:hover:not(:disabled){border-color:var(--ink);color:var(--ink);background:var(--wash)}
 .device-table button.revoke:disabled{opacity:.45;cursor:default}
 .device-table .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}

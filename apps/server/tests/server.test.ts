@@ -345,8 +345,8 @@ describe('control authorization and encrypted relay', () => {
     expect((await request('/account/devices', 'GET', undefined, accountToken)).data.items
       .some((item: { deviceId: string }) => item.deviceId === target.deviceId)).toBe(false)
     expect((await request('/me', 'GET', undefined, target.accessToken)).status).toBe(401)
-    // Repeating the revoke, or naming an unknown device, cannot silently succeed.
-    expect((await request(`/account/devices/${target.deviceId}`, 'DELETE', undefined, accountToken)).status).toBe(403)
+    // Repeating the revoke is idempotent; an unknown device is still a 404.
+    expect((await request(`/account/devices/${target.deviceId}`, 'DELETE', undefined, accountToken)).status).toBe(200)
     expect((await request(`/account/devices/${randomUUID()}`, 'DELETE', undefined, accountToken)).status).toBe(404)
   })
 })

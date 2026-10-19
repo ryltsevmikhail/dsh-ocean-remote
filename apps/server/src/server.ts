@@ -129,11 +129,18 @@ export function createRemoteServer(config: Config) {
       store.revoke(deviceAuth(req).descriptor.deviceId); json(res, 200, { status: 'revoked' }); return
     }
     // Owner action: an account session may revoke any device of this account, so a
-    // lost or compromised machine can be cut off without holding its credential.
+    // device can be cut off without holding its credential. The account's browser
+    // session is a separate credential and stays valid until it expires or logs out.
     const ownerRevoke = /^\/api\/v1\/account\/devices\/([^/]+)$/.exec(path)
     if (method === 'DELETE' && ownerRevoke) {
       accountAuth(req)
-      store.revoke(ownerRevoke[1]!)
+      try {
+        store.revoke(ownerRevoke[1]!)
+      } catch (error) {
+        // Repeating a successful revoke (lost response, double click) is still success;
+        // an unknown device stays a 404.
+        if (!(error instanceof ApiError) || error.code !== 'DEVICE_REVOKED') throw error
+      }
       json(res, 200, { status: 'revoked' })
       return
     }

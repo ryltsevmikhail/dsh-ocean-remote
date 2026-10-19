@@ -24,6 +24,8 @@ export async function api<T>(path: string, body?: unknown, signal?: AbortSignal,
   if (!response.ok) {
     const messages: Record<number, string> = {
       401: 'Вход не подтверждён. Проверьте аккаунт и пароль либо войдите заново.',
+      403: 'Действие недоступно: устройство уже отозвано или у сессии нет прав.',
+      404: 'Устройство не найдено: возможно, оно уже отозвано. Обновите список.',
       429: 'Слишком много запросов. Повторите попытку через минуту.',
     }
     throw new RequestError(messages[response.status] ?? 'Сервер отклонил запрос. Повторите попытку.', response.status)
