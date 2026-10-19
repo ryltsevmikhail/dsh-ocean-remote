@@ -52,6 +52,14 @@ describe('plugin config', () => {
     expect(resolveConfig({ acp: { enabled: false, backends: [{ id: 'codex', enabled: true }] } }, {}).codex.enabled).toBe(false)
   })
 
+  it('has no implicit server and respects explicit configuration over the environment', () => {
+    expect(resolveConfig({}, {}).serverUrl).toBeUndefined()
+    expect(resolveConfig({}, { DSH_REMOTE_SERVER: 'https://env.example.com/' }).serverUrl).toBe('https://env.example.com')
+    expect(resolveConfig({ serverUrl: 'https://profile.example.com/' }, {
+      DSH_REMOTE_SERVER: 'https://env.example.com',
+    }).serverUrl).toBe('https://profile.example.com')
+  })
+
   it('rejects insecure non-local servers and embedded credentials', () => {
     expect(() => resolveConfig({ serverUrl: 'http://remote.example.com' })).toThrow(/HTTPS/)
     expect(() => resolveConfig({ serverUrl: 'https://user:password@remote.example.com' })).toThrow(/credentials/)

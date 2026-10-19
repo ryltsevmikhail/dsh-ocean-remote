@@ -27274,7 +27274,6 @@ function safeMessage(error) {
 // src/config.ts
 import { hostname } from "node:os";
 import s from "@deepseek-ai/schemastery";
-var DEFAULT_REMOTE_SERVER_URL = "https://dsh.r2049.cn";
 var entryConfigSchema = s.object({
   enabled: s.boolean(),
   role: s.union(["host", "client", "both"]),
@@ -42004,7 +42003,7 @@ Waiting for authorization...
 }
 async function status(args, runtime) {
   if (args.length !== 0) throw new CliUsageError("Usage: ds-harness-remote status");
-  const serverUrl = selectedServer();
+  const serverUrl = selectedServer(runtime.env);
   const root = new IdentityStore({ env: runtime.env }).directory;
   const directory = serverStorageDirectory(root, serverUrl, "host");
   const lines = [
@@ -42054,7 +42053,7 @@ Run "ds-harness-remote login" or use "/remote login" in dsh-TUI.
 }
 async function logout(args, runtime) {
   if (args.length !== 0) throw new CliUsageError("Usage: ds-harness-remote logout");
-  const serverUrl = selectedServer();
+  const serverUrl = selectedServer(runtime.env);
   const root = new IdentityStore({ env: runtime.env }).directory;
   const directory = serverStorageDirectory(root, serverUrl, "host");
   if (!await exists3(join13(directory, "device.json"))) {
@@ -42081,7 +42080,7 @@ async function logout(args, runtime) {
   return 0;
 }
 async function hostContext(runtime) {
-  const serverUrl = selectedServer();
+  const serverUrl = selectedServer(runtime.env);
   const root = new IdentityStore({ env: runtime.env }).directory;
   const directory = serverStorageDirectory(root, serverUrl, "host");
   const deviceName = runtime.env.DSH_REMOTE_DEVICE_NAME ?? hostname3();
@@ -42090,8 +42089,10 @@ async function hostContext(runtime) {
   const api = runtime.createHostApi(serverUrl, new ServerCredentialStore(directory));
   return { api, identities, identity: identity2, deviceName };
 }
-function selectedServer() {
-  return normalizeServerUrl(DEFAULT_REMOTE_SERVER_URL);
+function selectedServer(env) {
+  const serverUrl = env.DSH_REMOTE_SERVER?.trim();
+  if (!serverUrl) throw new CliUsageError("Set DSH_REMOTE_SERVER to your own server URL before using Remote.");
+  return normalizeServerUrl(serverUrl);
 }
 function resolveDependencies(input3) {
   return {
@@ -42169,7 +42170,7 @@ function helpText() {
     "",
     "Inside dsh-TUI, use /remote login, /remote status, or /remote logout.",
     "login uses an available QR provider (preferring Zhihu). Use login list to see available providers.",
-    `The Server is ${DEFAULT_REMOTE_SERVER_URL}.`,
+    "Set DSH_REMOTE_SERVER=https://your-server.example before running these commands; there is no default Server.",
     "Host configuration is not exposed by this CLI yet. Restart dsh-tui after login or logout.",
     ""
   ].join("\n");
@@ -42760,8 +42761,7 @@ async function activate(ctx, readConfig, entryId, tuiBinding) {
   const settingsBinding = await createSettingsBinding(ctx, settings, readConfig, entryId);
   const connection = ctx.get("connection");
   const webServer = ctx.get("webServer");
-  const resolvedConfig = resolveConfig(settingsBinding?.get() ?? readConfig());
-  const config = connection === void 0 && resolvedConfig.serverUrl === void 0 ? { ...resolvedConfig, serverUrl: DEFAULT_REMOTE_SERVER_URL } : resolvedConfig;
+  const config = resolveConfig(settingsBinding?.get() ?? readConfig());
   const defaultIdentityDirectory = new IdentityStore().directory;
   if (!config.enabled) {
     if (connection !== void 0) {

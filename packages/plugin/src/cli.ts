@@ -1,7 +1,7 @@
 import { stat } from 'node:fs/promises'
 import { hostname } from 'node:os'
 import { join } from 'node:path'
-import { DEFAULT_REMOTE_SERVER_URL, normalizeServerUrl } from './config.js'
+import { normalizeServerUrl } from './config.js'
 import {
   IdentityStore,
   serverStorageDirectory,
@@ -145,7 +145,7 @@ async function login(args: readonly string[], runtime: CliRuntime): Promise<numb
 
 async function status(args: readonly string[], runtime: CliRuntime): Promise<number> {
   if (args.length !== 0) throw new CliUsageError('Usage: ds-harness-remote status')
-  const serverUrl = selectedServer()
+  const serverUrl = selectedServer(runtime.env)
   const root = new IdentityStore({ env: runtime.env }).directory
   const directory = serverStorageDirectory(root, serverUrl, 'host')
   const lines = [
@@ -191,7 +191,7 @@ async function status(args: readonly string[], runtime: CliRuntime): Promise<num
 
 async function logout(args: readonly string[], runtime: CliRuntime): Promise<number> {
   if (args.length !== 0) throw new CliUsageError('Usage: ds-harness-remote logout')
-  const serverUrl = selectedServer()
+  const serverUrl = selectedServer(runtime.env)
   const root = new IdentityStore({ env: runtime.env }).directory
   const directory = serverStorageDirectory(root, serverUrl, 'host')
   if (!await exists(join(directory, 'device.json'))) {
@@ -225,7 +225,7 @@ async function hostContext(runtime: CliRuntime): Promise<{
   identity: HostIdentity
   deviceName: string
 }> {
-  const serverUrl = selectedServer()
+  const serverUrl = selectedServer(runtime.env)
   const root = new IdentityStore({ env: runtime.env }).directory
   const directory = serverStorageDirectory(root, serverUrl, 'host')
   const deviceName = runtime.env.DSH_REMOTE_DEVICE_NAME ?? hostname()
@@ -235,8 +235,10 @@ async function hostContext(runtime: CliRuntime): Promise<{
   return { api, identities, identity, deviceName }
 }
 
-function selectedServer(): string {
-  return normalizeServerUrl(DEFAULT_REMOTE_SERVER_URL)
+function selectedServer(env: NodeJS.ProcessEnv): string {
+  const serverUrl = env.DSH_REMOTE_SERVER?.trim()
+  if (!serverUrl) throw new CliUsageError('Set DSH_REMOTE_SERVER to your own server URL before using Remote.')
+  return normalizeServerUrl(serverUrl)
 }
 
 function resolveDependencies(input: RemoteCliDependencies): CliRuntime {
@@ -336,7 +338,7 @@ function helpText(): string {
     '',
     'Inside dsh-TUI, use /remote login, /remote status, or /remote logout.',
     'login uses an available QR provider (preferring Zhihu). Use login list to see available providers.',
-    `The Server is ${DEFAULT_REMOTE_SERVER_URL}.`,
+    'Set DSH_REMOTE_SERVER=https://your-server.example before running these commands; there is no default Server.',
     'Host configuration is not exposed by this CLI yet. Restart dsh-tui after login or logout.',
     '',
   ].join('\n')

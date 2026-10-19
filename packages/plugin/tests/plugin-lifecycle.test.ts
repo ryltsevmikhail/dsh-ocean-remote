@@ -153,7 +153,7 @@ describe('Cordis plugin lifecycle', () => {
     await ctx.fiber.dispose()
   })
 
-  it('loads a TUI Host against the v0.1.2 Typert Remote Gateway without a Desktop connection service', async () => {
+  it.each([undefined, 'https://remote.example.com'])('loads TUI without an implicit server (configured server: %s)', async (serverUrl) => {
     const dshHome = await mkdtemp(join(tmpdir(), 'dsh-remote-alpha-cordis-'))
     directories.push(dshHome)
     vi.stubEnv('DSH_HOME', dshHome)
@@ -170,7 +170,9 @@ describe('Cordis plugin lifecycle', () => {
     ctx.provide('commands', { register: vi.fn(() => vi.fn()) })
     ctx.provide('tuiCommandTrees', { register: vi.fn(() => vi.fn()) })
     ctx.provide('tuiScenes', { register: vi.fn(() => vi.fn()), open: vi.fn(() => true) })
-    ctx.provide('settings', settings({ deviceName: 'Cordis alpha host' }))
+    vi.stubEnv('DSH_REMOTE_SERVER', undefined)
+    const config = { ...disabledAgentDomains, deviceName: 'Cordis alpha host', ...(serverUrl === undefined ? {} : { serverUrl }) }
+    ctx.provide('settings', settings(config))
     ctx.provide('typertGateway', {
       invoke: vi.fn(async () => undefined),
       dispatchRpc: vi.fn(async () => ({ ok: true, value: undefined })),
@@ -180,18 +182,19 @@ describe('Cordis plugin lifecycle', () => {
         failure: vi.fn(() => ({ code: 'internal', message: 'failed', details: {} })),
       },
     } as never)
-    const fiber = await ctx.plugin(remotePlugin, { ...disabledAgentDomains, deviceName: 'Cordis alpha host' })
+    const fiber = await ctx.plugin(remotePlugin, config)
 
     try {
       await vi.waitFor(() => {
         expect(ctx.dshRemote.currentIdentity()).toMatchObject({ name: 'Cordis alpha host' })
-        expect(ctx.dshRemote.diagnostics()).toMatchObject({ loaded: true, serverConfigured: true })
-        expect(fetchMock).toHaveBeenCalledTimes(1)
+        expect(ctx.dshRemote.diagnostics()).toMatchObject({ loaded: true, serverConfigured: serverUrl !== undefined })
+        expect(fetchMock).toHaveBeenCalledTimes(serverUrl === undefined ? 0 : 1)
       })
       expect(ctx.get('dshRemoteClient')).toBeUndefined()
 
       await fiber.dispose()
-      expect(requestSignal?.aborted).toBe(true)
+      if (serverUrl === undefined) expect(fetchMock).not.toHaveBeenCalled()
+      else expect(requestSignal?.aborted).toBe(true)
       expect(ctx.get('dshRemote')).toBeUndefined()
     } finally {
       await fiber.dispose()

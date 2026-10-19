@@ -6,7 +6,6 @@ import type { SettingsForms } from '@deepseek-ai/dsh-settings'
 import { ClientModeRuntime, type HostConnectionHandle } from './client-runtime.js'
 import {
   Config,
-  DEFAULT_REMOTE_SERVER_URL,
   resolveConfig,
   type Config as ConfigShape,
   type ConfigInput,
@@ -175,12 +174,9 @@ async function activate(
   const webServer = ctx.get('webServer') as HostWebServerLike | undefined
   // Reads resolve through the binding so the ≤0.1.6 scope's user layer (not the
   // raw composition seed) is honored; the rc.1 binding reads the live Config.
-  const resolvedConfig = resolveConfig(settingsBinding?.get() ?? readConfig())
-  // dsh-TUI has no settings UI or browser connection. In that profile the
-  // QR-authorized Host is enabled against the hosted Server by default.
-  const config: ResolvedConfig = connection === undefined && resolvedConfig.serverUrl === undefined
-    ? { ...resolvedConfig, serverUrl: DEFAULT_REMOTE_SERVER_URL }
-    : resolvedConfig
+  // Desktop and TUI both require an explicitly configured server. Never
+  // bootstrap a hosted service merely because no browser connection exists.
+  const config = resolveConfig(settingsBinding?.get() ?? readConfig())
   const defaultIdentityDirectory = new IdentityStore().directory
   if (!config.enabled) {
     if (connection !== undefined) {

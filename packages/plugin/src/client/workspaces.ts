@@ -81,7 +81,7 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
     const [needsAuthorization, setNeedsAuthorization] = React.useState(false)
     const [email, setEmail] = React.useState('')
     const [password, setPassword] = React.useState('')
-    const [loginServerUrl, setLoginServerUrl] = React.useState('https://dsh.r2049.cn')
+    const [loginServerUrl, setLoginServerUrl] = React.useState('')
     const [savingServer, setSavingServer] = React.useState(false)
     const serverDirty = loginServerUrl.trim() !== (status?.serverUrl ?? '')
     const [loginMethod, setLoginMethod] = React.useState<LoginMethod>('password')
@@ -180,7 +180,7 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
     }
 
     React.useEffect(() => {
-      if (!open || !needsAuthorization || savingServer || serverDirty) return
+      if (!open || !needsAuthorization || !status?.serverUrl || savingServer || serverDirty) return
       let active = true
       const run = ++providerRequestRun.current
       qrFlowRun.current += 1
@@ -213,7 +213,7 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
     }, [open, needsAuthorization, status?.serverUrl, props.preferredQrProvider, providerReload, savingServer, serverDirty])
 
     React.useEffect(() => {
-      if (!open || !needsAuthorization || savingServer || serverDirty || providersLoading || loginMethod === 'password'
+      if (!open || !needsAuthorization || !status?.serverUrl || savingServer || serverDirty || providersLoading || loginMethod === 'password'
         || !oauthProviders.some(item => `oauth:${item.id}` === loginMethod) || qrSession !== undefined || qrExpired) return
       void startQrLogin(loginMethod.slice(6))
     }, [open, needsAuthorization, providersLoading, oauthProviders, loginMethod, qrSession, qrExpired, savingServer, serverDirty])
@@ -459,7 +459,8 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
         setStatus(nextStatus)
         if (!nextStatus.available) {
           setDevices([])
-          setNeedsAuthorization(false)
+          // First run must expose the server form, not an empty Host list.
+          setNeedsAuthorization(nextStatus.serverUrl === undefined)
           setSelectedHost(undefined)
           setWorkspaces([])
           setCodexWorkspaces([])
