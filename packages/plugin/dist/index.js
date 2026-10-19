@@ -30849,7 +30849,7 @@ var ClientModeRuntime = class {
   }
   /** An established session closed without an operator action (network, revoke, crash). */
   handleUnexpectedClose(targetDeviceId) {
-    if (this.closed || this.connected === void 0) return;
+    if (this.closed) return;
     this.lastDrop = { deviceId: targetDeviceId, at: Date.now() };
     this.logger.warn("remote Harness session dropped unexpectedly", { targetDeviceId: shortId(targetDeviceId) });
   }

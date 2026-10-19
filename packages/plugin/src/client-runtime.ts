@@ -771,8 +771,9 @@ export class ClientModeRuntime {
 
   /** An established session closed without an operator action (network, revoke, crash). */
   private handleUnexpectedClose(targetDeviceId: string): void {
-    // Only a session that actually was established can be reported as dropped.
-    if (this.closed || this.connected === undefined) return
+    // client-connection calls this only after the active channel closed on its own,
+    // and it clears `connected` first, so checking it here would be always true.
+    if (this.closed) return
     // The Host list is not cached here; the UI resolves the display name by id.
     this.lastDrop = { deviceId: targetDeviceId, at: Date.now() }
     this.logger.warn('remote Harness session dropped unexpectedly', { targetDeviceId: shortId(targetDeviceId) })

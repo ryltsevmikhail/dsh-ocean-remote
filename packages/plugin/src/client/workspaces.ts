@@ -915,20 +915,23 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
     const layerDevice = pickLayerDevice({ selected: selectedHost, failed: failedHost, connecting: connectingHost, connected: connectedDevice })
     const layerStates = connectionLayers({ needsAuthorization, device: layerDevice, connectedTargetDeviceId: connectedTargetId })
     // An unexpected drop keeps the Host's work intact; offer one explicit way back.
-    const droppedHost = status?.lastDrop === undefined
+    // Never guess a different Host: without its own row the notice stays text-only.
+    const droppedDeviceId = status?.lastDrop?.deviceId
+    const droppedHost = droppedDeviceId === undefined
       ? undefined
-      : listedHosts.find(device => device.deviceId === status!.lastDrop!.deviceId)
-        ?? failedHost
-    const dropBar = droppedHost === undefined || status?.mode === 'remote'
+      : listedHosts.find(device => device.deviceId === droppedDeviceId)
+    const dropBar = droppedDeviceId === undefined || status?.mode === 'remote' || failedHost !== undefined
       ? null
       : React.createElement('div', { className: 'dshRemoteConnectBar isDrop', role: 'status' },
         React.createElement('div', { className: 'dshRemoteConnectText' },
           React.createElement('strong', null, t('dropTitle')),
-          React.createElement('span', null, t('dropBody', { name: droppedHost.name }))),
-        React.createElement('button', {
-          type: 'button', disabled: busy,
-          onClick: () => void selectHost(droppedHost),
-        }, t('dropReconnect')))
+          React.createElement('span', null, t('dropBody', { name: droppedHost?.name ?? droppedDeviceId.slice(0, 8) }))),
+        droppedHost === undefined
+          ? null
+          : React.createElement('button', {
+            type: 'button', disabled: busy,
+            onClick: () => void selectHost(droppedHost),
+          }, t('dropReconnect')))
 
     const layerRow = React.createElement('div', { className: 'dshRemoteConnectLayers' },
       ...layerStates.map(item => React.createElement('span', { key: item.key, className: `dshRemoteConnectLayer is-${item.state}` }, t(item.key))),

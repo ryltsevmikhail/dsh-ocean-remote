@@ -40,7 +40,7 @@ export interface RemoteStatus {
   connected?: boolean
   connectedTargetDeviceId?: string
   /** Set when an established session closed without an operator action. */
-  lastDrop?: { deviceId: string; at: number }
+  lastDrop?: RemoteDropNotice
   transport?: 'LAN' | 'P2P' | 'TURN' | 'Relay' | 'Disconnected'
   preferredTransports?: RemoteTransportPreference[]
   connectionProgress?: {

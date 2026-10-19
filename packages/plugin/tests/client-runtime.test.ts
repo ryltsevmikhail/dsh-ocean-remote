@@ -43,9 +43,8 @@ describe('ClientModeRuntime drop notice', () => {
         connected: unknown
         handleUnexpectedClose(targetDeviceId: string): void
       }
-      // An established session is required: a drop while local is not reported.
-      state.handleUnexpectedClose('host-device-1')
-      expect(runtime.status().lastDrop).toBeUndefined()
+      // The connection layer only calls this for an established session, so the runtime
+      // records it directly; an explicit return to local mode clears it again.
       state.connected = {
         client: { close: vi.fn(async () => undefined), getStats: () => ({ mode: 'Relay', connected: true }) },
         target: { deviceId: 'host-device-1', name: 'Workstation' },
@@ -53,6 +52,9 @@ describe('ClientModeRuntime drop notice', () => {
       }
       state.handleUnexpectedClose('host-device-1')
       expect(runtime.status().lastDrop).toMatchObject({ deviceId: 'host-device-1' })
+      // A second report replaces the first instead of accumulating.
+      state.handleUnexpectedClose('host-device-2')
+      expect(runtime.status().lastDrop).toMatchObject({ deviceId: 'host-device-2' })
       await runtime.setMode('local')
       expect(runtime.status().lastDrop).toBeUndefined()
     } finally { await runtime.close() }

@@ -7,7 +7,7 @@ export function installStyle(clientModuleId: string): () => void {
   style.dataset.plugin = clientModuleId
   style.dataset.pluginCss = 'dsh-remote'
   style.textContent = [
-    '.dshRemoteConnectBar.isDrop{border-color:var(--dsw-alias-label-tertiary)}.dshRemoteConnectBar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:6px 0;color:var(--dsw-alias-label-secondary);font-size:13px}',
+    '.dshRemoteConnectBar.isDrop{border:1px solid var(--dsw-alias-border-l2);border-radius:10px;padding:8px 12px;background:var(--dsw-alias-bg-layer-1)}.dshRemoteConnectText{display:flex;flex-direction:column;gap:2px}.dshRemoteConnectText strong{font-weight:600;color:var(--dsw-alias-label-primary)}.dshRemoteConnectBar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:6px 0;color:var(--dsw-alias-label-secondary);font-size:13px}',
     '.dshRemoteConnectBar button{min-height:32px;padding:0 12px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:inherit;font:inherit;cursor:pointer}',
     '.dshRemoteConnectBar button:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}.dshRemoteConnectBar button:disabled{opacity:.45;cursor:default}',
     '.dshRemoteConnectLayers{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:var(--dsw-alias-label-secondary)}',
