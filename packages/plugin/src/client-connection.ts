@@ -25,6 +25,7 @@ import {
 import { ClientSecureTransport } from './client-secure-transport.js'
 import type { ResolvedConfig } from './config.js'
 import type { HostIdentity, IdentityStore, TrustedPeer } from './identity-store.js'
+import type { PeerApprovalQueue } from './peer-approval.js'
 import type { SafeLogger } from './logging.js'
 import type { ServerHostDevice } from './server-api.js'
 import { ClientServerApi } from './server-api.js'
@@ -47,6 +48,8 @@ export interface ClientConnectionContext {
   readonly closeCursorVirtual: () => Promise<void>
   readonly proxySwitch: ApiProxySwitch | undefined
   readonly gatewaySwitch: TypertGatewaySwitch
+  readonly peerApprovals?: PeerApprovalQueue
+  readonly isActive?: () => boolean
   readonly identities: IdentityStore
 }
 
@@ -58,6 +61,13 @@ export class ClientConnection {
     const progressRunId = this.context.connectionProgressRun + 1
     this.context.connectionProgressRun = progressRunId
     this.context.connectionProgress = { runId: progressRunId, targetDeviceId, phase: 'checking-host' }
+    const assertCurrent = () => {
+      signal?.throwIfAborted()
+      if (this.context.isActive?.() === false || this.context.connectionProgressRun !== progressRunId) {
+        throw new ClientModeError('CONNECTION_CANCELLED', 'The connection request is no longer active.')
+      }
+    }
+    assertCurrent()
     const identity = this.context.requireIdentity()
     let client: RemoteClientCore | undefined
     // Keep cancellation attached through capability discovery as well as the
@@ -71,7 +81,7 @@ export class ClientConnection {
         throw new ClientModeError('MEMBERSHIP_REQUIRED', 'The selected Host is not authorized for this account.')
       }
       this.updateConnectionProgress(progressRunId, 'authorizing-peer')
-      const target = await this.authorizeHostPeer(serverDevice)
+      const target = await this.authorizeHostPeer(serverDevice, assertCurrent)
       signal?.throwIfAborted()
       const presence = await this.context.server.presenceFor(targetDeviceId)
       signal?.throwIfAborted()
@@ -126,6 +136,7 @@ export class ClientConnection {
         webRtcFallback = false
         const stopProgressTimer = this.beginAttemptProgress(progressRunId, attempt)
         try {
+          assertCurrent()
           transport = createTransport(attempt)
           client = new RemoteClientCore(new ClientSecureTransport(transport, identity, target), 60_000)
           const attemptClient = client
@@ -242,25 +253,37 @@ export class ClientConnection {
     if (this.context.connectionProgress?.runId === runId) this.context.connectionProgress = undefined
   }
 
-  async authorizeHostPeer(serverDevice: ServerHostDevice): Promise<TrustedPeer> {
+  async validateHostPeer(serverDevice: ServerHostDevice): Promise<'trusted' | 'unknown' | 'conflict'> {
     const descriptor = await this.context.server.deviceFor(serverDevice.deviceId)
+    assertAuthorizedHost(serverDevice, descriptor)
+    const existing = this.context.identities.trustedPeer(descriptor.deviceId)
+    if (existing === undefined) return 'unknown'
+    return existing.publicKey === descriptor.identityKey ? 'trusted' : 'conflict'
+  }
+
+  async authorizeHostPeer(serverDevice: ServerHostDevice, assertCurrent?: () => void): Promise<TrustedPeer> {
+    const descriptor = await this.context.server.deviceFor(serverDevice.deviceId)
+    assertCurrent?.()
+    if (this.context.isActive?.() === false) {
+      throw new ClientModeError('CONNECTION_CANCELLED', 'The connection owner is closed.')
+    }
     assertAuthorizedHost(serverDevice, descriptor)
     const existing = this.context.identities.trustedPeer(descriptor.deviceId)
     if (existing !== undefined && existing.publicKey !== descriptor.identityKey) {
       throw new ClientModeError('PEER_IDENTITY_MISMATCH', 'The authorized Host identity key changed unexpectedly.')
     }
-    if (existing !== undefined
-      && existing.membershipId === descriptor.membershipId
-      && existing.name === descriptor.name
-      && existing.platform === descriptor.platform) {
-      return existing
+    if (existing !== undefined) return existing
+    try {
+      this.context.peerApprovals?.request({
+        deviceId: descriptor.deviceId,
+        name: descriptor.name,
+        platform: descriptor.platform,
+        publicKey: descriptor.identityKey,
+        membershipId: descriptor.membershipId,
+      })
+    } catch {
+      // Queue exhaustion/closure is an approval denial, never implicit trust.
     }
-    return this.context.identities.trustPeer({
-      deviceId: descriptor.deviceId,
-      name: descriptor.name,
-      platform: descriptor.platform,
-      publicKey: descriptor.identityKey,
-      membershipId: descriptor.membershipId,
-    })
+    throw new ClientModeError('PEER_APPROVAL_REQUIRED', 'Approve this Host identity before connecting.')
   }
 }

@@ -11,7 +11,7 @@ import {
 import { IdentityStore, serverStorageDirectory } from './identity-store.js'
 import { ClientServerApi, HostServerApi } from './server-api.js'
 import { ServerCredentialStore } from './server-credentials.js'
-import { registerControlRoute, type HostWebServerLike } from './control-route.js'
+import { registerControlRoute, type HostWebServerLike, type ControlInvocationAuthority } from './control-route.js'
 import { ControlStatusStream } from './control-stream.js'
 import { codexBinaryCandidates } from './codex/domain.js'
 import { cursorBinaryCandidates } from './acp/gateway.js'
@@ -51,6 +51,7 @@ export interface PluginSettingsBinding {
 export class PluginControlRuntime {
   private logoutFlight?: Promise<PluginSettingsView>
   private serverSwitchFlight?: Promise<PluginSettingsView>
+  private authorityTransition = false
 
   constructor(
     private config: ResolvedConfig,
@@ -68,7 +69,7 @@ export class PluginControlRuntime {
     const statusStream = new ControlStatusStream(() => this.streamStatus())
     return registerControlRoute(
       connection,
-      (endpoint, payload, signal) => this.handle(endpoint, payload, signal),
+      (endpoint, payload, signal, authority) => this.handle(endpoint, payload, signal, authority),
       webServer,
       statusStream,
     )
@@ -85,10 +86,43 @@ export class PluginControlRuntime {
     return result.value
   }
 
-  private async handle(endpoint: string, payload: unknown, signal: AbortSignal): Promise<RpcResult<unknown>> {
+  private async handle(endpoint: string, payload: unknown, signal: AbortSignal, authority?: ControlInvocationAuthority): Promise<RpcResult<unknown>> {
+    const transition = ['settings.configure', 'settings.server.set', 'settings.role.set', 'settings.logout', 'host.authorization.set',
+      'host.account.login', 'host.registration-code.submit', 'client.account.login', 'client.account.qr.start', 'client.account.qr.poll'].includes(endpoint)
+    if (this.authorityTransition && (transition || endpoint === 'trust.approve' || endpoint === 'trust.reject')) {
+      return fail(new ClientModeError(endpoint === 'settings.server.set' ? 'SERVER_SWITCH_BUSY' : 'AUTHORITY_BUSY', 'An account or runtime transition is already in progress.'))
+    }
+    if (transition) this.authorityTransition = true
+    try { return await this.handleAction(endpoint, payload, signal, authority) }
+    finally { if (transition) this.authorityTransition = false }
+  }
+
+  private async handleAction(endpoint: string, payload: unknown, signal: AbortSignal, authority?: ControlInvocationAuthority): Promise<RpcResult<unknown>> {
     try {
+      if ((endpoint === 'trust.approve' || endpoint === 'trust.reject') && authority?.localApproval !== true) {
+        throw new ClientModeError('LOCAL_APPROVAL_REQUIRED', 'Peer approval is available only through authenticated local HTTP.')
+      }
       // A request arriving during replacement must use the new Server runtime.
       if (endpoint !== 'settings.server.set') await this.serverSwitchFlight
+      if (endpoint === 'trust.status') return ok(this.trustView(authority?.localApproval === true))
+      if (endpoint === 'trust.approve' || endpoint === 'trust.reject') {
+        const value = record(payload)
+        if ((value.role !== 'host' && value.role !== 'client') || typeof value.deviceId !== 'string' || typeof value.generation !== 'string') {
+          throw new ClientModeError('INVALID_MESSAGE', 'Role, device and approval generation are required.')
+        }
+        const target = value.role === 'host' ? this.host : this.client
+        if (target?.peerTrustStatus?.().available !== true) throw new ClientModeError('PEER_APPROVAL_UNAVAILABLE', 'The current peer approval authority is unavailable.')
+        if (endpoint === 'trust.approve') {
+          if (typeof value.fullFingerprint !== 'string' || !/^[0-9A-F]{64}$/.test(value.fullFingerprint) || target.approvePeer === undefined) {
+            throw new ClientModeError('INVALID_MESSAGE', 'The exact full uppercase SHA-256 fingerprint is required.')
+          }
+          await target.approvePeer({ deviceId: value.deviceId, generation: value.generation, fullFingerprint: value.fullFingerprint })
+          return ok({ approved: true })
+        }
+        if (target.rejectPeer === undefined) throw new ClientModeError('PEER_APPROVAL_UNAVAILABLE', 'Peer rejection is unavailable.')
+        target.rejectPeer({ deviceId: value.deviceId, generation: value.generation })
+        return ok({ rejected: true })
+      }
       if (endpoint === 'settings.development.set') return ok(await this.setDevelopment(payload))
       if (endpoint === 'settings.get') return ok(await this.settingsView())
       if (endpoint === 'settings.configure') return ok(await this.configure(payload))
@@ -142,6 +176,14 @@ export class PluginControlRuntime {
     }
   }
 
+  private trustView(localApproval: boolean): Record<string, unknown> {
+    return {
+      localApproval,
+      ...(this.host?.peerTrustStatus === undefined ? {} : { host: this.host.peerTrustStatus() }),
+      ...(this.client === undefined ? {} : { client: this.client.peerTrustStatus() }),
+    }
+  }
+
   private async configure(payload: unknown): Promise<Record<string, unknown>> {
     if (this.settings === undefined) {
       throw new ClientModeError('SETTINGS_UNAVAILABLE', 'DSH user settings are unavailable in this profile.')
@@ -159,7 +201,8 @@ export class PluginControlRuntime {
     const identities = new IdentityStore({
       directory: serverStorageDirectory(this.identityDirectory, next.serverUrl!, value.role),
     })
-    let identity = await identities.loadOrCreate(hostname())
+    try {
+    let identity = await identities.loadOrCreate(next.deviceName)
     const api = value.role === 'host'
       ? new HostServerApi(next.serverUrl!, new ServerCredentialStore(identities.directory))
       : new ClientServerApi(next.serverUrl!, new ServerCredentialStore(identities.directory))
@@ -171,19 +214,29 @@ export class PluginControlRuntime {
         throw new ClientModeError('INVALID_MESSAGE', 'Email and password are required for account authorization.')
       }
       authorization = await api.authorizeWithAccount(identity, value.email, value.password, async () => {
-        identity = await identities.reset(hostname())
+        identity = await identities.reset(next.deviceName)
         return identity
       })
     }
     if (value.role === 'client' && resolveConfig(this.settings.get()).hostControl?.enabled !== false) {
       await this.client?.authorizeHostByDefault()
     }
+    await Promise.all([this.host?.invalidatePeerApprovals?.(), this.client?.invalidatePeerApprovals()])
     await this.settings.replace(editableConfig(next))
+    if (this.switchServer !== undefined) {
+      const runtimes = await this.switchServer(next)
+      this.client = runtimes.client
+      this.host = runtimes.host
+    }
+    this.config = next
     return {
       status: 'authorized',
       role: value.role,
       ...(authorization.account === undefined ? {} : { account: authorization.account }),
       settings: await this.settingsView(),
+    }
+    } finally {
+      await identities.close()
     }
   }
 
@@ -238,8 +291,18 @@ export class PluginControlRuntime {
       && await this.association(current.serverUrl, role) === undefined) {
       await this.authorizeOwnedRole(current.serverUrl, currentRole, role)
     }
-    await this.settings.replace({ ...current, role })
-    return this.settingsView()
+    const next = resolveConfig({ ...current, role })
+    if (role !== currentRole) {
+      await Promise.all([this.host?.invalidatePeerApprovals?.(), this.client?.invalidatePeerApprovals()])
+    }
+    await this.settings.replace(editableConfig(next))
+    if (role !== currentRole && this.switchServer !== undefined) {
+      const runtimes = await this.switchServer(next)
+      this.client = runtimes.client
+      this.host = runtimes.host
+    }
+    this.config = next
+    return { ...await this.settingsView(), ...(role !== currentRole && this.switchServer === undefined ? { applies: 'restart' as const } : {}) }
   }
 
   private async setDevelopment(payload: unknown): Promise<PluginSettingsView> {
@@ -343,7 +406,11 @@ export class PluginControlRuntime {
     targetRole: 'host' | 'client',
   ): Promise<void> {
     const sourceDirectory = serverStorageDirectory(this.identityDirectory, serverUrl, sourceRole)
-    const sourceIdentity = await new IdentityStore({ directory: sourceDirectory }).loadOrCreate(hostname())
+    const sourceIdentities = new IdentityStore({ directory: sourceDirectory })
+    const targetIdentities = new IdentityStore({ directory: serverStorageDirectory(this.identityDirectory, serverUrl, targetRole) })
+    try {
+    const deviceName = resolveConfig(this.settings?.get() ?? this.config).deviceName
+    const sourceIdentity = await sourceIdentities.loadOrCreate(deviceName)
     const sourceStore = new ServerCredentialStore(sourceDirectory)
     if (await sourceStore.load(serverUrl, sourceIdentity.deviceId) === undefined) return
     const sourceApi = sourceRole === 'host'
@@ -352,11 +419,14 @@ export class PluginControlRuntime {
     const sourceCredentials = await sourceApi.authenticate(sourceIdentity)
 
     const targetDirectory = serverStorageDirectory(this.identityDirectory, serverUrl, targetRole)
-    const targetIdentity = await new IdentityStore({ directory: targetDirectory }).loadOrCreate(hostname())
+    const targetIdentity = await targetIdentities.loadOrCreate(deviceName)
     const targetApi = targetRole === 'host'
       ? new HostServerApi(serverUrl, new ServerCredentialStore(targetDirectory))
       : new ClientServerApi(serverUrl, new ServerCredentialStore(targetDirectory))
     await targetApi.authorizeOwnedRole(targetIdentity, sourceCredentials.accessToken, sourceCredentials.account)
+    } finally {
+      await Promise.all([sourceIdentities.close(), targetIdentities.close()])
+    }
   }
 
   private logout(): Promise<PluginSettingsView> {
@@ -420,12 +490,16 @@ export class PluginControlRuntime {
     const identities = new IdentityStore({
       directory: serverStorageDirectory(this.identityDirectory, serverUrl, role),
     })
-    const identity = await identities.loadOrCreate(hostname())
-    const credentials = await new ServerCredentialStore(identities.directory).load(serverUrl, identity.deviceId)
-    if (credentials === undefined) return undefined
-    return {
-      method: credentials.authorizationMethod,
-      ...(credentials.account === undefined ? {} : { account: credentials.account }),
+    try {
+      const identity = await identities.loadOrCreate(resolveConfig(this.settings?.get() ?? this.config).deviceName)
+      const credentials = await new ServerCredentialStore(identities.directory).load(serverUrl, identity.deviceId)
+      if (credentials === undefined) return undefined
+      return {
+        method: credentials.authorizationMethod,
+        ...(credentials.account === undefined ? {} : { account: credentials.account }),
+      }
+    } finally {
+      await identities.close()
     }
   }
 

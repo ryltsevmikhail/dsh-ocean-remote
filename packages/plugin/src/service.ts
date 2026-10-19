@@ -1,3 +1,6 @@
+import { PeerApprovalQueue, type ApprovePeerAction, type PeerApprovalAction } from './peer-approval.js'
+import { buildPeerTrustView, type PeerTrustView } from './peer-trust.js'
+import type { TrustedPeer } from './identity-store.js'
 import { WorkspaceUploadHost } from './workspace-upload.js'
 import { workspaceUploadRootResolver } from './workspace-upload-authority.js'
 import { LoopbackHost } from './loopback-host.js'
@@ -75,6 +78,43 @@ export class HostPluginRuntime {
   private readonly serverApi?: HostServerApi
   private serverConnection?: HostServerConnection
   private harnessVersion?: string
+  private peerApprovals?: PeerApprovalQueue
+  private peerEpochId = randomUUID()
+  private approvalsClosing: Promise<void> = Promise.resolve()
+  private closing?: Promise<void>
+  private started = false
+
+  peerTrustStatus(): PeerTrustView {
+    return buildPeerTrustView('host', this.peerEpochId, this.started && !this.closed && this.peerApprovals !== undefined, this.closed ? undefined : this.identity, this.identities, this.peerApprovals)
+  }
+
+  approvePeer(action: ApprovePeerAction): Promise<TrustedPeer> {
+    try { return this.requirePeerApprovals().approve(action) } catch (error) { return Promise.reject(error) }
+  }
+
+  rejectPeer(action: PeerApprovalAction): void { this.requirePeerApprovals().reject(action) }
+
+  private requirePeerApprovals(): PeerApprovalQueue {
+    if (!this.started || this.closed || this.peerApprovals === undefined) {
+      throw Object.assign(new Error('Peer approval authority is unavailable.'), { code: 'PEER_APPROVAL_UNAVAILABLE' })
+    }
+    return this.peerApprovals
+  }
+
+  invalidatePeerApprovals(): Promise<void> {
+    const queue = this.peerApprovals
+    this.peerApprovals = undefined
+    const drain = queue?.close() ?? Promise.resolve()
+    this.approvalsClosing = Promise.all([this.approvalsClosing, drain]).then(() => undefined)
+    return this.approvalsClosing
+  }
+
+  private renewPeerApprovals(): void {
+    if (!this.started || this.closed || !this.config.enabled || this.identity === undefined) return
+    this.peerEpochId = randomUUID()
+    this.peerApprovals = new PeerApprovalQueue(this.identities, { epochId: this.peerEpochId, role: 'host', ...(this.config.serverUrl === undefined ? {} : { origin: new URL(this.config.serverUrl).origin }) })
+  }
+
   private closed = false
   private readonly codex: CodexRemoteDomain
   private readonly acp: AcpRemoteGateway
@@ -94,6 +134,7 @@ export class HostPluginRuntime {
     /** PTY-backed terminal provider from the Host `subprocess` service, when present. */
     private readonly terminalSpawner?: RemoteTerminalSpawner,
     private readonly pluginRoutes?: (peer?: unknown) => PluginRouteDispatcher | undefined,
+    private readonly getProtectedLoopbackPorts: () => readonly number[] = () => [],
   ) {
     this.terminalEnabled = config.terminal.enabled
     this.loopbackPorts = [...config.loopback.ports]
@@ -181,12 +222,19 @@ export class HostPluginRuntime {
   private backendUpdate: Promise<void> = Promise.resolve()
 
   setAgentBackends(config: ResolvedConfig): Promise<void> {
+    const authorityChanged = this.config.role !== config.role || this.config.enabled !== config.enabled
+    const drain = authorityChanged ? this.invalidatePeerApprovals() : Promise.resolve()
     const update = this.backendUpdate.catch(() => undefined).then(async () => {
+      await drain
+      if (authorityChanged) await this.serverConnection?.stop()
       if (this.closed) throw new Error('remote runtime is closed')
       const codexChanged = JSON.stringify(this.config.codex) !== JSON.stringify(config.codex)
       await Promise.all([this.codex.reconfigure(config.codex), this.acp.reconfigure(config.acp ?? { enabled: false, backends: [] })])
       if (codexChanged) await this.codexWorkspaceState.dispose()
       this.config.codex = config.codex
+      this.config.role = config.role
+      this.config.enabled = config.enabled
+      if (authorityChanged) this.renewPeerApprovals()
     })
     this.backendUpdate = update
     return update
@@ -194,14 +242,18 @@ export class HostPluginRuntime {
 
   private createLoopbackHost(): LoopbackHost {
     let loopback: LoopbackHost
-    loopback = new LoopbackHost(() => this.loopbackPorts, () => this.loopbackHosts.delete(loopback))
+    loopback = new LoopbackHost(() => this.loopbackPorts, () => this.loopbackHosts.delete(loopback), () => this.getProtectedLoopbackPorts())
     this.loopbackHosts.add(loopback)
     return loopback
   }
 
   async start(): Promise<void> {
     if (this.closed) throw new Error('remote runtime is closed')
+    if (this.started) return
     this.identity = await this.identities.loadOrCreate(this.config.deviceName)
+    if (this.closed) return
+    this.started = true
+    this.renewPeerApprovals()
     this.logger.info('host identity ready', {
       deviceId: shortId(this.identity.deviceId),
       fingerprint: this.identity.fingerprint,
@@ -285,6 +337,8 @@ export class HostPluginRuntime {
   }
 
   async startHostOAuthQrLogin(provider: OAuthProvider): Promise<OAuthQrSession> {
+    await this.invalidatePeerApprovals()
+    await this.serverConnection?.stop()
     if (this.serverApi === undefined) {
       throw new ServerApiError('SERVER_NOT_CONFIGURED', 'Remote Host Server is unavailable.', false)
     }
@@ -292,6 +346,8 @@ export class HostPluginRuntime {
   }
 
   async pollHostOAuthQrLogin(qrId: string): Promise<OAuthQrPollResult> {
+    await this.invalidatePeerApprovals()
+    await this.serverConnection?.stop()
     if (this.serverApi === undefined) {
       throw new ServerApiError('SERVER_NOT_CONFIGURED', 'Remote Host Server is unavailable.', false)
     }
@@ -303,6 +359,7 @@ export class HostPluginRuntime {
       return this.identity
     })
     if (result.status === 'complete') {
+      this.renewPeerApprovals()
       this.serverConnection?.reconnect()
       this.logger.info('Host account authorized through OAuth QR login')
     }
@@ -310,6 +367,7 @@ export class HostPluginRuntime {
   }
 
   async clearHostAuthorization(): Promise<void> {
+    await this.invalidatePeerApprovals()
     await this.serverConnection?.stop()
     let revokeFailure: unknown
     try {
@@ -322,9 +380,12 @@ export class HostPluginRuntime {
     if (this.serverApi !== undefined) this.serverConnection = this.createServerConnection(this.identity)
     this.logger.info('Host authorization cleared')
     if (revokeFailure !== undefined) throw revokeFailure
+    this.renewPeerApprovals()
   }
 
   async authorizeHostAsOwned(accessToken: string, account?: string): Promise<DeviceAuthorization> {
+    await this.invalidatePeerApprovals()
+    await this.serverConnection?.stop()
     if (this.serverApi === undefined) {
       throw new ServerApiError('SERVER_NOT_CONFIGURED', 'Configure serverUrl before enabling Host access.', false)
     }
@@ -340,12 +401,15 @@ export class HostPluginRuntime {
       result = await this.serverApi.authorizeOwnedRole(this.identity, accessToken, account)
       this.logger.info('Rotated revoked Host identity before owned-device authorization')
     }
+    this.renewPeerApprovals()
     this.serverConnection?.resume()
     this.logger.info('Host authorized as an owned device')
     return result
   }
 
   async authorizeHostWithAccount(email: string, password: string): Promise<DeviceAuthorization> {
+    await this.invalidatePeerApprovals()
+    await this.serverConnection?.stop()
     if (this.serverApi === undefined) {
       throw new ServerApiError('SERVER_NOT_CONFIGURED', 'Configure serverUrl before signing in.', false)
     }
@@ -357,24 +421,30 @@ export class HostPluginRuntime {
       this.logger.info('Rotated revoked Host identity before account authorization')
       return this.identity
     })
+    this.renewPeerApprovals()
     this.serverConnection?.resume()
     this.logger.info('Host account authorized')
     return result
   }
 
   async authorizeHostWithCode(code: string): Promise<DeviceAuthorization> {
+    await this.invalidatePeerApprovals()
+    await this.serverConnection?.stop()
     if (this.serverApi === undefined) {
       throw new ServerApiError('SERVER_NOT_CONFIGURED', 'Configure serverUrl before entering a Host registration code.', false)
     }
     const result = await this.serverApi.authorizeHostWithCode(this.currentIdentity(), code)
+    this.renewPeerApprovals()
     this.serverConnection?.resume()
     this.logger.info('Host registration code authorized')
     return result
   }
 
   async revokePeer(deviceId: string): Promise<boolean> {
+    await this.invalidatePeerApprovals()
     const revoked = await this.identities.revokePeer(deviceId)
     if (revoked) await this.connections.revoke(deviceId)
+    this.renewPeerApprovals()
     return revoked
   }
 
@@ -428,19 +498,29 @@ export class HostPluginRuntime {
     return { closed: false, streamId }
   }
 
-  async close(): Promise<void> {
-    if (this.closed) return
+  close(): Promise<void> {
+    if (this.closing !== undefined) return this.closing
     this.closed = true
-    this.serverApi?.close()
-    await this.serverConnection?.stop()
-    await this.connections.close()
-    await this.localCodexPeer?.closeAll()
-    this.localCodexPeer = undefined
-    await this.localAcpPeer?.closeAll()
-    this.localAcpPeer = undefined
-    const shutdown = await Promise.allSettled([this.codexWorkspaceState.dispose(), this.codex.close(), this.acp.close()])
-    if (shutdown.some(result => result.status === 'rejected')) throw new RpcError('HOST_SHUTDOWN_FAILED', 'Some Host backend processes could not be stopped.')
-    this.logger.info('host runtime stopped')
+    const drain = this.invalidatePeerApprovals()
+    this.closing = (async () => {
+      try {
+        await drain
+        const shutdown = await Promise.allSettled([
+          Promise.resolve().then(() => this.serverApi?.close()),
+          Promise.resolve().then(() => this.serverConnection?.stop()),
+          Promise.resolve().then(() => this.connections.close()),
+          Promise.resolve().then(() => this.localCodexPeer?.closeAll()),
+          Promise.resolve().then(() => this.localAcpPeer?.closeAll()),
+          Promise.resolve().then(() => this.codexWorkspaceState.dispose()),
+          Promise.resolve().then(() => this.codex.close()),
+          Promise.resolve().then(() => this.acp.close()),
+        ])
+        this.localCodexPeer = undefined
+        this.localAcpPeer = undefined
+        if (shutdown.some(result => result.status === 'rejected')) throw new RpcError('HOST_SHUTDOWN_FAILED', 'Some Host resources could not be stopped.')
+      } finally { await this.identities.close() }
+    })()
+    return this.closing
   }
 
   diagnostics() {
@@ -477,6 +557,7 @@ export class HostPluginRuntime {
         : () => loadNodeRtcFactory({ routeTargets: this.config.serverUrl === undefined ? [] : [this.config.serverUrl] }),
       () => this.hostCapabilities(),
       this.harnessVersion,
+      () => this.peerApprovals,
     )
   }
 

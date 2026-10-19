@@ -126,7 +126,7 @@ describe('HostServerConnection', () => {
       refreshCredentials: vi.fn(),
       deviceFor: vi.fn(async () => ({
         deviceId: peer.deviceId,
-        name: peer.name,
+        name: 'Changed account display name',
         role: 'client',
         platform: peer.platform,
         identityKey: peer.publicKey,
@@ -141,7 +141,7 @@ describe('HostServerConnection', () => {
     const server = new HostServerConnection(
       config(),
       identity,
-      { trustedPeer: vi.fn(() => undefined), trustPeer } as unknown as IdentityStore,
+      { trustedPeer: vi.fn(() => peer), trustPeer } as unknown as IdentityStore,
       api,
       connections,
       logger(),
@@ -184,11 +184,7 @@ describe('HostServerConnection', () => {
       type: 'connect.accepted',
       payload: { connectionId: 'connection-1' },
     }))
-    expect(trustPeer).toHaveBeenCalledWith(expect.objectContaining({
-      deviceId: 'client-1',
-      publicKey: clientKeys.publicKey,
-      membershipId: 'membership-1',
-    }))
+    expect(trustPeer).not.toHaveBeenCalled()
 
     const clientNoise = new NoiseIkSession({
       role: 'initiator',

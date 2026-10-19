@@ -1,3 +1,7 @@
+import { randomUUID } from 'node:crypto'
+import { PeerApprovalQueue, type ApprovePeerAction, type PeerApprovalAction } from './peer-approval.js'
+import { buildPeerTrustView, type PeerTrustView } from './peer-trust.js'
+import type { TrustedPeer } from './identity-store.js'
 import type { ApiProxy, RpcResult } from '@deepseek-ai/dsh-host-apiproxy/api'
 import { AgentAcpClient, CodexRemoteClient } from '@dsh-remote/client-core'
 import type { PluginRouteCallResult } from '@dsh-remote/protocol'
@@ -90,6 +94,43 @@ export class ClientModeRuntime {
   private readonly codexStreams = new Map<string, CodexLoopbackStream>()
   private connectionProgress?: ConnectionProgressState
   private connectionProgressRun = 0
+  private peerApprovals?: PeerApprovalQueue
+  private peerEpochId = randomUUID()
+  private approvalsClosing: Promise<void> = Promise.resolve()
+  private closing?: Promise<void>
+  private started = false
+
+  peerTrustStatus(): PeerTrustView {
+    return buildPeerTrustView('client', this.peerEpochId, this.started && !this.closed && this.peerApprovals !== undefined, this.closed ? undefined : this.identity, this.identities, this.peerApprovals)
+  }
+
+  approvePeer(action: ApprovePeerAction): Promise<TrustedPeer> {
+    try { return this.requirePeerApprovals().approve(action) } catch (error) { return Promise.reject(error) }
+  }
+
+  rejectPeer(action: PeerApprovalAction): void { this.requirePeerApprovals().reject(action) }
+
+  private requirePeerApprovals(): PeerApprovalQueue {
+    if (!this.started || this.closed || this.peerApprovals === undefined) {
+      throw Object.assign(new Error('Peer approval authority is unavailable.'), { code: 'PEER_APPROVAL_UNAVAILABLE' })
+    }
+    return this.peerApprovals
+  }
+
+  invalidatePeerApprovals(): Promise<void> {
+    const queue = this.peerApprovals
+    this.peerApprovals = undefined
+    const drain = queue?.close() ?? Promise.resolve()
+    this.approvalsClosing = Promise.all([this.approvalsClosing, drain]).then(() => undefined)
+    return this.approvalsClosing
+  }
+
+  private renewPeerApprovals(): void {
+    if (!this.started || this.closed || !this.config.enabled || this.identity === undefined) return
+    this.peerEpochId = randomUUID()
+    this.peerApprovals = new PeerApprovalQueue(this.identities, { epochId: this.peerEpochId, role: 'client', ...(this.config.serverUrl === undefined ? {} : { origin: new URL(this.config.serverUrl).origin }) })
+  }
+
   private closed = false
   private remoteLifetime = new AbortController()
 
@@ -124,6 +165,8 @@ export class ClientModeRuntime {
       get proxySwitch() { return owner.proxySwitch },
       get gatewaySwitch() { return owner.gatewaySwitch },
       get identities() { return owner.identities },
+      get peerApprovals() { return owner.peerApprovals },
+      isActive: () => !owner.closed && owner.peerApprovals !== undefined,
     })
     this.control = new ClientControl({
       detailedStatus: (...args) => owner.detailedStatus(...args),
@@ -169,7 +212,11 @@ export class ClientModeRuntime {
 
   async start(): Promise<void> {
     if (this.closed) throw new Error('client remote-mode runtime is closed')
+    if (this.started) return
     this.identity = await this.identities.loadOrCreate(this.config.deviceName)
+    if (this.closed) return
+    this.started = true
+    this.renewPeerApprovals()
     this.server.bindIdentity(this.identity)
     this.proxySwitch?.install()
     this.gatewaySwitch.install()
@@ -281,9 +328,9 @@ export class ClientModeRuntime {
     const serverDevices = await this.server.listDevices()
     const remoteDevices = serverDevices.filter(device => device.deviceId !== this.host?.hostStatus().deviceId)
     return Promise.all(remoteDevices.map(async device => {
-      await this.connection.authorizeHostPeer(device)
+      const trustState = await this.connection.validateHostPeer(device)
       const presence = await this.server.presenceFor(device.deviceId).catch(() => ({ online: false }))
-      return { ...device, ...presence }
+      return { ...device, ...presence, trustState }
     }))
   }
 
@@ -313,6 +360,8 @@ export class ClientModeRuntime {
   }
 
   async authorizeClientWithAccount(email: string, password: string): Promise<unknown> {
+    await this.invalidatePeerApprovals()
+    await this.leaveRemote()
     let authorization
     try {
       authorization = await this.server.authorizeWithAccount(this.requireIdentity(), email, password)
@@ -322,28 +371,34 @@ export class ClientModeRuntime {
       this.server.bindIdentity(this.identity)
       authorization = await this.server.authorizeWithAccount(this.identity, email, password)
     }
+    this.renewPeerApprovals()
     await this.authorizeHostByDefault()
     this.logger.info('Client account authorized')
     return authorization
   }
 
   async startClientOAuthQrLogin(provider: OAuthProvider): Promise<unknown> {
+    await this.invalidatePeerApprovals()
+    await this.leaveRemote()
     return this.server.startOAuthQrLogin(provider)
   }
 
   async pollClientOAuthQrLogin(qrId: string): Promise<unknown> {
+    await this.invalidatePeerApprovals()
     const result = await this.server.pollOAuthQrLogin(this.requireIdentity(), qrId, async () => {
       this.identity = await this.identities.reset(this.config.deviceName)
       this.server.bindIdentity(this.identity)
       this.logger.info('Rotated revoked Client identity before QR authorization retry')
       return this.identity
     })
+    if (result.status === 'complete') this.renewPeerApprovals()
     if (result.status === 'complete') this.logger.info('Client account authorized with QR login')
     if (result.status === 'complete') await this.authorizeHostByDefault()
     return result
   }
 
   async clearClientAuthorization(): Promise<void> {
+    await this.invalidatePeerApprovals()
     const cleanup = this.leaveRemote()
     this.codexOpenedSessions.clear()
     const results = await Promise.allSettled([cleanup, this.server.revokeCurrentDevice()])
@@ -352,6 +407,7 @@ export class ClientModeRuntime {
     this.server.bindIdentity(this.identity)
     const failure = results.find(result => result.status === 'rejected')
     if (failure?.status === 'rejected') throw failure.reason
+    this.renewPeerApprovals()
   }
 
   async setHostAuthorization(enabled: boolean): Promise<unknown> {
@@ -673,16 +729,24 @@ export class ClientModeRuntime {
     return this.status()
   }
 
-  async close(): Promise<void> {
-    if (this.closed) return
+  close(): Promise<void> {
+    if (this.closing !== undefined) return this.closing
     this.closed = true
-    this.server.close?.()
-    try {
-      await this.leaveRemote()
-    } finally {
-      this.proxySwitch?.restore()
-      this.gatewaySwitch.restore()
-    }
+    const drain = this.invalidatePeerApprovals()
+    this.closing = (async () => {
+      try {
+        await drain
+        const results = await Promise.allSettled([
+          Promise.resolve().then(() => this.server.close?.()),
+          this.leaveRemote(),
+          Promise.resolve().then(() => this.proxySwitch?.restore()),
+          Promise.resolve().then(() => this.gatewaySwitch.restore()),
+        ])
+        const failure = results.find(result => result.status === 'rejected')
+        if (failure?.status === 'rejected') throw failure.reason
+      } finally { await this.identities.close() }
+    })()
+    return this.closing
   }
 
   private async leaveRemote(): Promise<void> {

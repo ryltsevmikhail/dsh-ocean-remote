@@ -34,6 +34,41 @@ function get(url: string, headers: Record<string, string> = {}): Promise<{ statu
 }
 
 describe('restricted loopback HTTP / WebSocket preview', () => {
+  it('blocks protected app ports and normalized control paths before HTTP or WS reaches a server', async () => {
+    let hits = 0
+    const server = createServer((_req, res) => { hits++; res.end('preview') })
+    server.on('upgrade', (_req, socket) => { hits++; socket.destroy() })
+    const port = await listen(server)
+    let protectedPorts = [port]
+    const h = new LoopbackHost(() => [port], undefined, () => protectedPorts)
+    cleanup.push(() => h.closeAll())
+    expect(await h.call({ op: 'describe' })).toEqual({ ports: [] })
+    for (const op of ['http.open', 'ws.open']) {
+      const base = { op, id: randomUUID(), port, path: '/', headers: [], ...(op === 'http.open' ? { method: 'GET' } : { protocols: [] }) }
+      await expect(h.call(base)).rejects.toMatchObject({ code: 'LOOPBACK_PORT_DENIED' })
+      protectedPorts = []
+      for (const path of ['/ds-harness-remote', '/ds-harness-remote/trust.approve', '/%64s-harness-remote/trust.approve',
+        '/preview/../ds-harness-remote/trust.approve', '/preview/%2e%2e/ds-harness-remote', '/%2fds-harness-remote',
+        '/%5cds-harness-remote', '/%2564s-harness-remote', '/bad%ZZ', 'http://localhost/ds-harness-remote', '//localhost/ds-harness-remote']) {
+        await expect(h.call({ ...base, path })).rejects.toThrow()
+      }
+      protectedPorts = [port]
+    }
+    expect(hits).toBe(0)
+    protectedPorts = []
+    const id = randomUUID()
+    await expect(h.call({ op: 'http.open', id, port, path: '/api/ordinary?x=1', headers: [], method: 'GET' })).resolves.toMatchObject({ status: 200 })
+    expect(hits).toBe(1)
+    protectedPorts = [port]
+    await expect(h.call({ op: 'http.read', id })).rejects.toMatchObject({ code: 'LOOPBACK_CLOSED' })
+    expect(await h.call({ op: 'describe' })).toEqual({ ports: [] })
+    protectedPorts = []
+    const second = randomUUID()
+    await h.call({ op: 'http.open', id: second, port, path: '/', headers: [], method: 'GET' })
+    protectedPorts = [port]
+    h.setPorts([port])
+    await expect(h.call({ op: 'http.read', id: second })).rejects.toMatchObject({ code: 'LOOPBACK_CLOSED' })
+  })
   it('denies unlisted ports, arbitrary hosts, absolute URLs and cross-peer handles', async () => {
     const h = host([])
     const base = { op: 'http.open', id: randomUUID(), port: 5173, path: '/', method: 'GET', headers: [] }

@@ -1,3 +1,5 @@
+import type { PeerTrustView } from './peer-trust.js'
+import type { ApprovePeerAction, PeerApprovalAction } from './peer-approval.js'
 import type { RpcResult } from '@deepseek-ai/dsh-host-apiproxy/api'
 import { RemoteClientCore } from '@dsh-remote/client-core'
 import type { CodexAppFrameData, CodexAppStreamClosedData, RemoteWorkspaceTypeDescription } from '@dsh-remote/protocol'
@@ -95,6 +97,7 @@ export interface RemoteWorkspaceSelection {
 export type HarnessRemoteTransport = 'remoteGateway' | 'apiProxy'
 
 export interface RemoteDeviceView {
+  trustState?: 'trusted' | 'unknown' | 'conflict'
   deviceId: string
   name: string
   platform: string
@@ -119,6 +122,10 @@ export interface HostConnectionHandle {
 }
 
 export interface HostAuthorizationControl {
+  peerTrustStatus?(): PeerTrustView
+  approvePeer?(action: ApprovePeerAction): Promise<TrustedPeer>
+  rejectPeer?(action: PeerApprovalAction): void | Promise<void>
+  invalidatePeerApprovals?(): Promise<void>
   setAgentBackends?(config: ResolvedConfig): Promise<void>
   setTerminalEnabled?(enabled: boolean): void
   setLoopbackPorts?(ports: readonly number[]): void

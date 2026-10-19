@@ -2557,8 +2557,134 @@ Minimum version required to store current data is: ` + bestVersion + `.
     }
   }
 
+  // src/client/peer-trust-panel.ts
+  var fullSha256 = /^[0-9A-F]{64}$/;
+  function createPeerTrustPanel(React) {
+    let h = React.createElement;
+    return function(props) {
+      let [status, setStatus] = React.useState(void 0), [drafts, setDrafts] = React.useState({}), [busy, setBusy] = React.useState(!1), [error, setError] = React.useState(""), lifetime = React.useRef(void 0), locked = React.useRef(!1), keyOf = (role, epoch, deviceId, generation) => JSON.stringify([role, epoch, deviceId, generation]), apply = (next) => {
+        setStatus(next);
+        let keys = /* @__PURE__ */ new Set();
+        for (let role of ["host", "client"]) {
+          let view = next[role];
+          if (view?.role === role)
+            for (let item of view.pending) keys.add(keyOf(role, view.epochId, item.deviceId, item.generation));
+        }
+        setDrafts((previous) => Object.fromEntries(Object.entries(previous).filter(([key]) => keys.has(key))));
+      }, refresh = async (signal) => {
+        let next = props.localTrustControl ? await props.localTrustControl("trust.status", {}, signal) : await props.control("trust.status", {});
+        signal.aborted || apply(next);
+      }, runRefresh = async () => {
+        let signal = lifetime.current?.signal;
+        if (!(!signal || signal.aborted || locked.current)) {
+          locked.current = !0, setBusy(!0), setError("");
+          try {
+            await refresh(signal);
+          } catch {
+            signal.aborted || (setStatus(void 0), setDrafts({}), setError("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u0435 \u0434\u043E\u0432\u0435\u0440\u0438\u044F. \u041E\u0431\u043D\u043E\u0432\u0438\u0442\u0435 \u0432\u0440\u0443\u0447\u043D\u0443\u044E."));
+          } finally {
+            signal.aborted || (locked.current = !1, setBusy(!1));
+          }
+        }
+      };
+      React.useEffect(() => {
+        let controller = new AbortController();
+        lifetime.current = controller, locked.current = !1, setStatus(void 0), setDrafts({});
+        let abort = () => controller.abort();
+        return props.signal?.addEventListener("abort", abort, { once: !0 }), props.signal?.aborted && controller.abort(), runRefresh(), () => {
+          controller.abort(), props.signal?.removeEventListener("abort", abort);
+        };
+      }, [props.control, props.localTrustControl, props.signal]);
+      let mutate = async (role, deviceId, generation, fullFingerprint, epochId, approve) => {
+        let signal = lifetime.current?.signal, key = keyOf(role, epochId, deviceId, generation), draft = drafts[key];
+        if (!signal || signal.aborted || locked.current || !props.localTrustControl || status?.localApproval !== !0) return;
+        let view = status[role], candidate = view?.pending.find((item) => item.deviceId === deviceId && item.generation === generation);
+        if (!(!view?.available || view.role !== role || view.epochId !== epochId || candidate?.role !== role || candidate.epochId !== epochId || candidate.fullFingerprint !== fullFingerprint) && !(approve && (view.trusted.some((pin) => pin.deviceId === deviceId && pin.fullFingerprint !== fullFingerprint) || !draft?.checked || !fullSha256.test(fullFingerprint) || draft.fingerprint !== fullFingerprint))) {
+          locked.current = !0, setBusy(!0), setError("");
+          try {
+            await props.localTrustControl(approve ? "trust.approve" : "trust.reject", {
+              role,
+              deviceId,
+              generation,
+              ...approve ? { fullFingerprint } : {}
+            }, signal), signal.aborted || setDrafts((previous) => {
+              let next = { ...previous };
+              return delete next[key], next;
+            });
+          } catch {
+            signal.aborted || setError("\u0414\u0435\u0439\u0441\u0442\u0432\u0438\u0435 \u043D\u0435 \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u043E. \u0417\u0430\u043F\u0440\u043E\u0441 \u043C\u043E\u0433 \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C\u0441\u044F \u0438\u043B\u0438 \u0438\u0441\u0442\u0435\u0447\u044C; \u043E\u0431\u043D\u043E\u0432\u0438\u0442\u0435 \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u0435 \u0438 \u043F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u043A\u043B\u044E\u0447 \u0437\u0430\u043D\u043E\u0432\u043E.");
+          } finally {
+            if (!signal.aborted)
+              try {
+                await refresh(signal);
+              } catch {
+                signal.aborted || (setStatus(void 0), setDrafts({}), setError("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u0435 \u0434\u043E\u0432\u0435\u0440\u0438\u044F. \u041E\u0431\u043D\u043E\u0432\u0438\u0442\u0435 \u0432\u0440\u0443\u0447\u043D\u0443\u044E."));
+              }
+            signal.aborted || (locked.current = !1, setBusy(!1));
+          }
+        }
+      }, writable = !!props.localTrustControl && status?.localApproval === !0;
+      return h(
+        "section",
+        { className: "dshRemoteSettings", "aria-label": "\u0414\u043E\u0432\u0435\u0440\u0438\u0435 \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0430\u043C" },
+        h("h3", null, "\u0414\u043E\u0432\u0435\u0440\u0438\u0435 \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0430\u043C \u2014 SHA-256"),
+        h("p", null, "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 Client \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0430\u0435\u0442 Host, \u0437\u0430\u0442\u0435\u043C Host \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0430\u0435\u0442 Client. \u041F\u0435\u0440\u0435\u0434\u0430\u0439\u0442\u0435 \u0441\u043E\u0431\u0441\u0442\u0432\u0435\u043D\u043D\u044B\u0439 \u043A\u043B\u044E\u0447 \u0414\u0420\u0423\u0413\u041E\u0413\u041E \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0430 \u043F\u043E \u043D\u0435\u0437\u0430\u0432\u0438\u0441\u0438\u043C\u043E\u043C\u0443 \u0434\u043E\u0432\u0435\u0440\u0435\u043D\u043D\u043E\u043C\u0443 \u043A\u0430\u043D\u0430\u043B\u0443. \u041D\u0435 \u043A\u043E\u043F\u0438\u0440\u0443\u0439\u0442\u0435 \u0432\u0441\u043B\u0435\u043F\u0443\u044E \u043A\u043B\u044E\u0447 \u0438\u0437 \u0437\u0430\u043F\u0440\u043E\u0441\u0430."),
+        h("p", null, "\u041F\u043E\u0441\u043B\u0435 \u043E\u0431\u043E\u0438\u0445 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u0439 \u0432\u0440\u0443\u0447\u043D\u0443\u044E \u043F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u0435 \u0441\u0443\u0449\u0435\u0441\u0442\u0432\u0443\u044E\u0449\u0435\u0435 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435 \xAB\u041F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u044C\xBB (Connect / Retry). \u041F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u0435 \u0441\u0430\u043C\u043E \u043D\u0435 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0430\u0435\u0442 \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u043E."),
+        writable ? null : h("p", { className: "dshRemoteNotice" }, "\u0422\u043E\u043B\u044C\u043A\u043E \u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440. \u0414\u043B\u044F \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u044F \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u044B\u0439 DSH Web \u043D\u0430 \u044D\u0442\u043E\u043C \u043A\u043E\u043C\u043F\u044C\u044E\u0442\u0435\u0440\u0435; \u0443\u0434\u0430\u043B\u0451\u043D\u043D\u044B\u0439 RPC \u043D\u0435 \u0434\u0430\u0451\u0442 \u043F\u0440\u0430\u0432\u0430 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0430\u0442\u044C \u043A\u043B\u044E\u0447\u0438."),
+        h("button", { type: "button", disabled: busy || props.signal?.aborted, onClick: () => void runRefresh() }, busy ? "\u041E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0435\u2026" : "\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u0434\u043E\u0432\u0435\u0440\u0438\u0435"),
+        error ? h("p", { className: "dshRemoteError", role: "alert" }, error) : null,
+        ...["host", "client"].map((role) => {
+          let view = status?.[role], validView = view?.role === role ? view : void 0;
+          return h(
+            "section",
+            { key: role, className: "dshRemoteField" },
+            h("h4", null, role === "host" ? "Host \u2014 \u043A\u043B\u044E\u0447 \u043F\u0440\u0438\u043D\u0438\u043C\u0430\u044E\u0449\u0435\u0439 \u0441\u0442\u043E\u0440\u043E\u043D\u044B" : "Client \u2014 \u043A\u043B\u044E\u0447 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0430\u044E\u0449\u0435\u0439\u0441\u044F \u0441\u0442\u043E\u0440\u043E\u043D\u044B"),
+            validView?.available ? null : h("p", null, "\u0420\u043E\u043B\u044C \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430."),
+            h("p", null, "\u0421\u043E\u0431\u0441\u0442\u0432\u0435\u043D\u043D\u044B\u0439 Device ID: ", h("code", null, validView?.self?.deviceId ?? "\u2014")),
+            h("p", null, "\u0421\u043E\u0431\u0441\u0442\u0432\u0435\u043D\u043D\u044B\u0439 \u043F\u043E\u043B\u043D\u044B\u0439 SHA-256: ", h("code", { style: { overflowWrap: "anywhere" } }, validView?.self?.fullFingerprint ?? "\u2014")),
+            h("p", null, "\u041E\u0436\u0438\u0434\u0430\u044E\u0449\u0438\u0435 \u0437\u0430\u043F\u0440\u043E\u0441\u044B \u0434\u0435\u0439\u0441\u0442\u0432\u0443\u044E\u0442 \u0434\u043E 5 \u043C\u0438\u043D\u0443\u0442. \u0421\u0440\u043E\u043A \u043F\u0440\u043E\u0432\u0435\u0440\u044F\u0435\u0442 \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u0430\u044F \u0441\u043B\u0443\u0436\u0431\u0430, \u0430 \u043D\u0435 \u0447\u0430\u0441\u044B \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430. \u0418\u0437\u043C\u0435\u043D\u0438\u0432\u0448\u0438\u0439\u0441\u044F \u0438\u0437\u0432\u0435\u0441\u0442\u043D\u044B\u0439 \u043A\u043B\u044E\u0447 \u043D\u0435\u043B\u044C\u0437\u044F \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044C \u0437\u0434\u0435\u0441\u044C."),
+            ...(validView?.pending ?? []).map((item) => {
+              let key = keyOf(role, validView.epochId, item.deviceId, item.generation), draft = drafts[key] ?? { checked: !1, fingerprint: "" }, update = (change) => setDrafts((previous) => ({ ...previous, [key]: { ...previous[key] ?? { checked: !1, fingerprint: "" }, ...change } })), knownChanged = validView.trusted.some((pin) => pin.deviceId === item.deviceId && pin.fullFingerprint !== item.fullFingerprint), disabled = busy || !writable || !validView.available || item.role !== role || item.epochId !== validView.epochId || knownChanged;
+              return h(
+                "div",
+                { key, className: "dshRemoteField" },
+                h("strong", null, "\u041D\u0435\u0434\u043E\u0432\u0435\u0440\u0435\u043D\u043D\u043E\u0435 \u0438\u043C\u044F \u0437\u0430\u043F\u0440\u043E\u0441\u0430: ", item.name),
+                h("p", null, "Device ID: ", h("code", null, item.deviceId), "; \u043F\u043B\u0430\u0442\u0444\u043E\u0440\u043C\u0430: ", item.platform),
+                h("p", null, "\u041D\u0435\u0434\u043E\u0432\u0435\u0440\u0435\u043D\u043D\u044B\u0439 origin: ", item.origin ?? "\u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D"),
+                h("p", null, "\u041F\u043E\u043B\u043D\u044B\u0439 SHA-256 \u0437\u0430\u043F\u0440\u043E\u0441\u0430: ", h("code", { style: { overflowWrap: "anywhere" } }, item.fullFingerprint)),
+                knownChanged ? h("p", { className: "dshRemoteError" }, "\u0418\u0437\u0432\u0435\u0441\u0442\u043D\u044B\u0439 \u043A\u043B\u044E\u0447 \u0438\u0437\u043C\u0435\u043D\u0438\u043B\u0441\u044F. \u041F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u0435 \u0437\u0430\u043F\u0440\u0435\u0449\u0435\u043D\u043E.") : null,
+                h("label", null, h("input", { type: "checkbox", checked: draft.checked, disabled, onChange: (event) => update({ checked: event.target.checked }) }), "\u0421\u0432\u0435\u0440\u0438\u043B \u043F\u043E\u043B\u043D\u044B\u0439 SHA-256 \u043D\u0430 \u0434\u0440\u0443\u0433\u043E\u043C \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0435"),
+                h("label", null, "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043F\u043E\u043B\u043D\u044B\u0439 SHA-256 \u0441 \u0434\u0440\u0443\u0433\u043E\u0433\u043E \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0430 (64 \u0441\u0438\u043C\u0432\u043E\u043B\u0430 0\u20139, A\u2013F):", h("input", {
+                  type: "text",
+                  value: draft.fingerprint,
+                  disabled,
+                  autoComplete: "off",
+                  spellCheck: !1,
+                  autoCapitalize: "off",
+                  "aria-label": `\u041F\u043E\u043B\u043D\u044B\u0439 SHA-256: ${role} ${item.deviceId}`,
+                  onChange: (event) => update({ fingerprint: event.target.value })
+                })),
+                h("button", { type: "button", disabled: disabled || !draft.checked || !fullSha256.test(draft.fingerprint) || draft.fingerprint !== item.fullFingerprint, onClick: () => void mutate(role, item.deviceId, item.generation, item.fullFingerprint, validView.epochId, !0) }, "\u041F\u043E\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044C \u043A\u043B\u044E\u0447"),
+                h("button", { type: "button", disabled: busy || !writable, onClick: () => void mutate(role, item.deviceId, item.generation, item.fullFingerprint, validView.epochId, !1) }, "\u041E\u0442\u043A\u043B\u043E\u043D\u0438\u0442\u044C")
+              );
+            }),
+            h("h4", null, "\u0421\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0435 \u043A\u043B\u044E\u0447\u0438"),
+            ...(validView?.trusted ?? []).map((pin) => h(
+              "div",
+              { key: pin.deviceId },
+              h("p", null, pin.name, " \u2014 Device ID: ", pin.deviceId, "; \u043F\u043B\u0430\u0442\u0444\u043E\u0440\u043C\u0430: ", pin.platform),
+              h("code", { style: { overflowWrap: "anywhere" } }, pin.fullFingerprint),
+              h("p", null, pin.provenance === "manual" ? "\u041F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0451\u043D \u0432\u0440\u0443\u0447\u043D\u0443\u044E." : "Legacy: \u043F\u0440\u043E\u0438\u0441\u0445\u043E\u0436\u0434\u0435\u043D\u0438\u0435 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u044F \u043D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u043E; \u043D\u0435 \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u0440\u0443\u0447\u043D\u044B\u043C \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u0435\u043C.")
+            ))
+          );
+        })
+      );
+    };
+  }
+
   // src/client/settings.ts
   function createRemotePluginOptions(React) {
+    let PeerTrustPanel = createPeerTrustPanel(React);
     function RemotePluginOptions(props) {
       let { t } = props, [open, setOpen] = React.useState(props.view === "page"), [serverUrl, setServerUrl] = React.useState(""), [portsBusy, setPortsBusy] = React.useState(!1), [previewPorts, setPreviewPorts] = React.useState(""), role = "host", [registrationCode, setRegistrationCode] = React.useState(""), [associations, setAssociations] = React.useState({}), [loaded, setLoaded] = React.useState(!1), [writable, setWritable] = React.useState(!1), [busy, setBusy] = React.useState(!1), [terminalEnabled, setTerminalEnabled] = React.useState(!1), [terminalBusy, setTerminalBusy] = React.useState(!1), [acpBackends, setAcpBackends] = React.useState([]), [acpAvailability, setAcpAvailability] = React.useState({}), [acpChecking, setAcpChecking] = React.useState({}), [acpCheckResults, setAcpCheckResults] = React.useState({}), [addingAcp, setAddingAcp] = React.useState(!1), [acpName, setAcpName] = React.useState(""), [acpCommand, setAcpCommand] = React.useState(""), [acpArguments, setAcpArguments] = React.useState("acp"), [reconnectBusy, setReconnectBusy] = React.useState(!1), [hostStatus, setHostStatus] = React.useState(void 0), [hostName, setHostName] = React.useState(""), [hostDeviceId, setHostDeviceId] = React.useState(""), [notice, setNotice] = React.useState(void 0), [error, setError] = React.useState(void 0), [settingsView, setSettingsView] = React.useState(void 0), associationReadRun = React.useRef(0), persistedServerUrl = settingsView?.config.serverUrl ?? "", association = associations.client ?? associations.host, serverDirty = settingsView !== void 0 && serverUrl !== persistedServerUrl, draftDirty = serverDirty, applyAssociations = (view) => {
         setAssociations(view.associations ?? (view.association === void 0 ? {} : { host: view.association }));
@@ -2840,6 +2966,12 @@ Minimum version required to store current data is: ` + bestVersion + `.
         open ? React.createElement(
           "div",
           { className: "dshRemotePluginCardBody" },
+          React.createElement(PeerTrustPanel, {
+            key: JSON.stringify([persistedServerUrl, settingsView?.config.role]),
+            control: props.control,
+            localTrustControl: props.localTrustControl,
+            signal: props.signal
+          }),
           loaded ? association !== void 0 ? React.createElement(
             "div",
             { className: "dshRemoteSettings" },
@@ -3009,6 +3141,80 @@ Minimum version required to store current data is: ` + bestVersion + `.
       );
     }
     return RemotePluginOptions;
+  }
+
+  // src/client/peer-trust-action.ts
+  function createPeerTrustAction(React) {
+    let h = React.createElement, PeerTrustPanel = createPeerTrustPanel(React), label = "\u0414\u043E\u0432\u0435\u0440\u0438\u0435 \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432";
+    return function(props) {
+      let [open, setOpen] = React.useState(!1), [scopeKey, setScopeKey] = React.useState(void 0), trigger = React.useRef(null), dialog = React.useRef(null), closeButton = React.useRef(null);
+      return React.useEffect(() => {
+        let previous;
+        return props.statusFeed.subscribe((status) => {
+          typeof status.serverUrl == "string" && status.serverUrl !== previous && (previous = status.serverUrl, setScopeKey(previous), setOpen(!1));
+        });
+      }, [props.statusFeed]), React.useEffect(() => {
+        if (!open) return;
+        let root = dialog.current;
+        if (!root) return;
+        let close = () => setOpen(!1), onKeyDown = (event) => {
+          if (event.key === "Escape")
+            event.preventDefault(), event.stopPropagation(), close();
+          else if (event.key === "Tab") {
+            let items = Array.from(root.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])')).filter((item) => item.tabIndex >= 0 && item.getClientRects().length > 0), first = items[0] ?? closeButton.current, last = items[items.length - 1] ?? first;
+            event.shiftKey && (document.activeElement === first || !root.contains(document.activeElement)) ? (event.preventDefault(), last?.focus()) : !event.shiftKey && (document.activeElement === last || !root.contains(document.activeElement)) && (event.preventDefault(), first?.focus());
+          }
+        }, onFocus = (event) => {
+          root.contains(event.target) || closeButton.current?.focus();
+        };
+        return closeButton.current?.focus(), document.addEventListener("keydown", onKeyDown, !0), document.addEventListener("focusin", onFocus, !0), props.signal?.addEventListener("abort", close, { once: !0 }), props.signal?.aborted && close(), () => {
+          document.removeEventListener("keydown", onKeyDown, !0), document.removeEventListener("focusin", onFocus, !0), props.signal?.removeEventListener("abort", close), trigger.current?.focus();
+        };
+      }, [open, props.signal]), h(
+        React.Fragment,
+        null,
+        h("style", null, ".dshRemoteTrustButton{min-width:36px;min-height:36px;padding:0 8px;font:inherit;font-size:12px}.dshRemoteTrustBackdrop{box-sizing:border-box;pointer-events:auto;-webkit-app-region:no-drag}.dshRemoteTrustDialog{box-sizing:border-box;width:min(760px,100%);max-height:calc(100dvh - 40px);overflow:auto;overscroll-behavior:contain}.dshRemoteTrustDialog .dshRemoteSettings{min-width:0}.dshRemoteTrustDialog code{overflow-wrap:anywhere}.dshRemoteTrustDialog :focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}"),
+        h("button", {
+          type: "button",
+          ref: trigger,
+          className: "dshRemoteModeButton dshRemoteTrustButton",
+          "aria-label": label,
+          title: label,
+          "aria-haspopup": "dialog",
+          "aria-expanded": open,
+          onClick: () => setOpen(!0)
+        }, "\u041A\u043B\u044E\u0447\u0438"),
+        open ? h(
+          "div",
+          { className: "dshRemoteBackdrop dshRemoteTrustBackdrop" },
+          h(
+            "section",
+            {
+              ref: dialog,
+              className: "dshRemoteDialog dshRemoteTrustDialog",
+              role: "dialog",
+              "aria-modal": !0,
+              "aria-label": label
+            },
+            h(
+              "div",
+              { className: "dshRemoteHeader" },
+              h("strong", null, label),
+              h("button", { type: "button", ref: closeButton, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C", onClick: () => setOpen(!1) }, "\xD7")
+            ),
+            // Unmounting on close/server change discards drafts and aborts panel reads.
+            // The panel itself remains the owner of per-role/epoch/generation drafts.
+            h(PeerTrustPanel, {
+              key: scopeKey ?? "unknown-server",
+              scopeKey,
+              control: props.control,
+              localTrustControl: props.localTrustControl,
+              signal: props.signal
+            })
+          )
+        ) : null
+      );
+    };
   }
 
   // src/client/shell.ts
@@ -4272,7 +4478,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
     return RemoteWorkspaceAction;
   }
 
-  // src/control-route.ts
+  // src/control-constants.ts
   var CONTROL_RPC_PREFIX = "/ds-harness-remote", STATUS_STREAM_ENDPOINT = "status.events", STATUS_STREAM_PATH = `${CONTROL_RPC_PREFIX}/${STATUS_STREAM_ENDPOINT}`;
 
   // src/plugin-route-client.ts
@@ -4583,7 +4789,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
   window.__ModuleLoader__.load({
     id: clientModuleId,
     factory: (require2) => {
-      let module = { exports: {} }, React = require2("react"), RemotePluginOptions = createRemotePluginOptions(React), RemoteWorkspaceAction = createRemoteWorkspaceAction(React), RemoteProgressView = createRemoteProgressView(React), RemoteSessionHeaderAction = createRemoteSessionHeaderAction(React), inject = [
+      let module = { exports: {} }, React = require2("react"), RemotePluginOptions = createRemotePluginOptions(React), PeerTrustAction = createPeerTrustAction(React), RemoteWorkspaceAction = createRemoteWorkspaceAction(React), RemoteProgressView = createRemoteProgressView(React), RemoteSessionHeaderAction = createRemoteSessionHeaderAction(React), inject = [
         "connection",
         "slots",
         "locale",
@@ -4759,6 +4965,25 @@ Minimum version required to store current data is: ` + bestVersion + `.
           }
           if (!result.ok) throw new Error(result.error?.message ?? t("remoteRequestFailed"));
           return result.value;
+        }, trustLifetime = new AbortController();
+        ctx.effect(() => () => trustLifetime.abort(), "ds-harness-remote: local trust HTTP");
+        let localTrustControl = async (endpoint, payload, signal) => {
+          if (typeof originalPluginFetch != "function") throw new Error("\u041B\u043E\u043A\u0430\u043B\u044C\u043D\u044B\u0439 HTTP \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D.");
+          let url = new URL(`${CONTROL_RPC_PREFIX}/${endpoint}`, window.location.origin), response = await originalPluginFetch.call(window, url.href, {
+            method: "POST",
+            credentials: "same-origin",
+            mode: "same-origin",
+            redirect: "error",
+            cache: "no-store",
+            referrerPolicy: "no-referrer",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ type: "client-request", rpcId: crypto.randomUUID(), method: endpoint, payload }),
+            signal: signal === void 0 ? trustLifetime.signal : AbortSignal.any([signal, trustLifetime.signal])
+          });
+          if (!response.ok) throw new Error("\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u044B\u0439 DSH Web \u0434\u043B\u044F \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u044F \u043A\u043B\u044E\u0447\u0430.");
+          let envelope = await response.json();
+          if (envelope.result?.ok !== !0) throw new Error("\u041F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u0435 \u043E\u0442\u043A\u043B\u043E\u043D\u0435\u043D\u043E. \u041E\u0431\u043D\u043E\u0432\u0438\u0442\u0435 \u0441\u043F\u0438\u0441\u043E\u043A \u0438 \u043F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u043F\u043E\u043B\u043D\u044B\u0439 \u043E\u0442\u043F\u0435\u0447\u0430\u0442\u043E\u043A.");
+          return envelope.result.value;
         }, statusFeed = createStatusFeed({
           url: STATUS_STREAM_PATH.slice(1),
           readStatus: () => control("status"),
@@ -4829,16 +5054,22 @@ Minimum version required to store current data is: ` + bestVersion + `.
             statusFeed,
             preferredQrProvider: ctx.locale.getLocale().active === "zh" ? "zhihu" : "github"
           })
-        }, RemoteWorkspaceAction)), ctx.slots.inject("plugins.row.config", () => ctx.slots.register({
+        }, RemoteWorkspaceAction)), ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({
+          name: "sidebar.footer.action",
+          id: "ds-harness-remote-trust",
+          order: -19,
+          locale: localeNamespace,
+          inject: () => ({ control, statusFeed, localTrustControl, signal: trustLifetime.signal })
+        }, PeerTrustAction)), ctx.slots.inject("plugins.row.config", () => ctx.slots.register({
           name: "plugins.row.config",
           key: "ds-harness-remote#ds-harness-remote",
           locale: localeNamespace,
-          inject: () => ({ control, statusFeed })
+          inject: () => ({ control, statusFeed, localTrustControl, signal: trustLifetime.signal })
         }, RemotePluginOptions)), ctx.slots.inject("plugins.bundle.config", () => ctx.slots.register({
           name: "plugins.bundle.config",
           key: "ds-harness-remote",
           locale: localeNamespace,
-          inject: () => ({ control, statusFeed })
+          inject: () => ({ control, statusFeed, localTrustControl, signal: trustLifetime.signal })
         }, RemotePluginOptions));
       }
       function isMissingControlRoute(reason) {

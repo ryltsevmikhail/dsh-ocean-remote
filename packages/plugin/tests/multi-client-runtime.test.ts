@@ -465,6 +465,8 @@ function identities(): IdentityStore {
   ])
   return {
     loadOrCreate: vi.fn(async () => identity),
+    current: vi.fn(() => identity),
+    close: vi.fn(async () => {}),
     isTrusted: vi.fn(() => true),
     listTrustedPeers: vi.fn(() => [...peers.values()]),
     trustedPeer: vi.fn((deviceId: string) => peers.get(deviceId)),

@@ -138,9 +138,14 @@ describe('ClientModeRuntime Host account control', () => {
       createOffer: async () => ({ type: 'offer', sdp: 'offer' }), setLocalDescription: async () => {},
       getStats: async () => [], close() {},
     }))
+    const trustedHost = { deviceId: host.deviceId, name: host.name, platform: host.platform,
+      publicKey: hostKeys.publicKey, membershipId: host.membershipId, trustedAt: 1, fingerprint: 'HOST', provenance: 'manual' as const }
     const identities = {
-      loadOrCreate: async () => identity, trustedPeer: () => undefined,
-      trustPeer: async (input: unknown) => ({ ...input as object, trustedAt: 1, fingerprint: 'HOST' }),
+      loadOrCreate: async () => identity,
+      trustedPeer: (deviceId: string) => deviceId === host.deviceId ? trustedHost : undefined,
+      listTrustedPeers: () => [trustedHost],
+      close: vi.fn(async () => {}),
+      trustPeer: vi.fn(),
     } as unknown as IdentityStore
     const server = { baseUrl: 'https://remote.test', bindIdentity() {}, listDevices: async () => [host],
       deviceFor: async () => host, presenceFor: async () => ({ online: true }),
@@ -153,8 +158,12 @@ describe('ClientModeRuntime Host account control', () => {
     try {
       await runtime.start()
       const connecting = (runtime as unknown as { connect(id: string): Promise<{ client: RemoteClientCore }> }).connect('host-1')
+        .then(value => ({ value }), error => ({ error }))
       await vi.advanceTimersByTimeAsync(41000)
-      connected = await connecting
+      const outcome = await connecting
+      if ('error' in outcome) throw outcome.error
+      connected = outcome.value
+      expect(identities.trustPeer).not.toHaveBeenCalled()
       expect(sockets).toHaveLength(3)
       expect(sockets.map(socket => socket.sent.find(frame => frame.type === 'connect.request')?.payload.preferredTransports)).toEqual([
         ['lan', 'p2p', 'relay'], ['turn', 'relay'], ['relay'],
@@ -1407,7 +1416,7 @@ describe('ClientModeRuntime Host account control', () => {
     )
   })
 
-  it('pins Host identity from an account-authorized device detail and rejects key replacement', async () => {
+  it('lists unknown Host identities passively and rejects replacement of an explicitly pinned legacy key', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'dsh-client-trust-'))
     directories.push(directory)
     const identities = new IdentityStore({ directory })
@@ -1436,16 +1445,35 @@ describe('ClientModeRuntime Host account control', () => {
     const runtime = new ClientModeRuntime(config(), identities, server, apiProxy(), gateway(), logger())
     await runtime.start()
 
-    await expect(runtime.devices()).resolves.toMatchObject([{ deviceId: 'host-device-1', online: true }])
-    expect(identities.trustedPeer('host-device-1')).toMatchObject({
-      publicKey: first.publicKey,
-      membershipId: 'membership-1',
-    })
+    try {
+      await expect(runtime.devices()).resolves.toMatchObject([
+        { deviceId: 'host-device-1', online: true, trustState: 'unknown' },
+      ])
+      expect(identities.trustedPeer('host-device-1')).toBeUndefined()
+      expect(runtime.peerTrustStatus()).toMatchObject({ pending: [], trusted: [] })
 
-    identityKey = replacement.publicKey
-    await expect(runtime.devices()).rejects.toMatchObject({ code: 'PEER_IDENTITY_MISMATCH' })
-    expect(identities.trustedPeer('host-device-1')?.publicKey).toBe(first.publicKey)
-    await runtime.close()
+      // Explicit fixture setup for an existing legacy pin, not discovery-driven trust.
+      const pinned = await identities.trustPeer({
+        deviceId: 'host-device-1', name: 'Workstation', platform: 'linux',
+        publicKey: first.publicKey, membershipId: 'membership-1',
+      })
+      expect(pinned.provenance).toBeUndefined()
+      await expect(runtime.devices()).resolves.toMatchObject([{ trustState: 'trusted' }])
+      expect(identities.trustedPeer('host-device-1')).toEqual(pinned)
+
+      identityKey = replacement.publicKey
+      await expect(runtime.devices()).resolves.toMatchObject([{ trustState: 'conflict' }])
+      const connection = (runtime as unknown as { connection: {
+        authorizeHostPeer(device: unknown): Promise<unknown>; connect(id: string): Promise<unknown>
+      } }).connection
+      const descriptor = await server.deviceFor('host-device-1')
+      await expect(connection.authorizeHostPeer(descriptor)).rejects.toMatchObject({ code: 'PEER_IDENTITY_MISMATCH' })
+      await expect(connection.connect('host-device-1')).rejects.toMatchObject({ code: 'PEER_IDENTITY_MISMATCH' })
+      expect(identities.trustedPeer('host-device-1')).toEqual(pinned)
+      expect(runtime.peerTrustStatus().pending).toEqual([])
+    } finally {
+      await runtime.close()
+    }
   })
 
   it('fails plugin.route control calls closed when no Remote Host is connected', async () => {

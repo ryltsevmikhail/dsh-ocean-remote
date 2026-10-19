@@ -69,6 +69,14 @@ export async function runCli(
   dependencies: RemoteCliDependencies = {},
 ): Promise<number> {
   const runtime = resolveDependencies(dependencies)
+  const createdIdentityStores = new Set<IdentityStore>()
+  const createIdentityStore = runtime.createIdentityStore
+  runtime.createIdentityStore = options => {
+    const store = createIdentityStore(options)
+    // Track before loading: a failed load can already own a writer lease.
+    createdIdentityStores.add(store)
+    return store
+  }
   const [command, ...rest] = args
   try {
     if (command === 'login') return await login(rest, runtime)
@@ -84,6 +92,20 @@ export async function runCli(
     write(runtime.stderr, `${cliErrorMessage(error)}\n`)
     if (error instanceof CliUsageError) write(runtime.stderr, `\n${helpText()}`)
     return error instanceof CliUsageError ? 2 : 1
+  } finally {
+    let cleanupFailed = false
+    for (const store of createdIdentityStores) {
+      try {
+        await store.close()
+      } catch {
+        cleanupFailed = true
+      }
+    }
+    if (cleanupFailed) {
+      // Cleanup errors may contain private paths or identity material.
+      try { write(runtime.stderr, 'Remote identity cleanup failed.\n') } catch { /* Preserve the numeric exit code. */ }
+      return 1
+    }
   }
 }
 

@@ -38,6 +38,7 @@ import {
 import type { ConnectionController } from './connection-controller.js'
 import type { ResolvedConfig } from './config.js'
 import type { HostIdentity, IdentityStore, TrustedPeer } from './identity-store.js'
+import type { PeerApprovalQueue } from './peer-approval.js'
 import type { SafeLogger } from './logging.js'
 import type { AuthorizedPeerDevice, HostServerApi } from './server-api.js'
 import { ServerApiError } from './server-api.js'
@@ -75,6 +76,7 @@ export class HostServerConnection {
   private socket?: WebSocketLike
   private running?: Promise<void>
   private stopped = true
+  private controlGeneration = 0
   private online = false
   private retryWake?: () => void
   private readonly tunnels = new Map<string, PendingTunnel>()
@@ -99,6 +101,7 @@ export class HostServerConnection {
     private readonly rtcFactoryProvider?: () => Promise<RtcPeerConnectionFactory | undefined>,
     private readonly hostCapabilities: () => readonly string[] = () => ['harness.api.v1'],
     private readonly harnessVersion?: string,
+    private readonly peerApprovals?: PeerApprovalQueue | (() => PeerApprovalQueue | undefined),
   ) {}
 
   start(): void {
@@ -124,6 +127,7 @@ export class HostServerConnection {
 
   async stop(): Promise<void> {
     this.stopped = true
+    this.controlGeneration += 1
     this.reconnectRequested = false
     this.retryWake?.()
     this.retryWake = undefined
@@ -213,6 +217,7 @@ export class HostServerConnection {
       ? ['transport.relay', ...this.hostCapabilities()]
       : ['transport.lan', 'transport.p2p', 'transport.turn', 'transport.relay', ...this.hostCapabilities()]
     const socket = this.createWebSocket(websocketUrl(this.api.baseUrl))
+    this.controlGeneration += 1
     this.socket = socket
     this.controlFrameLimits = {}
     let acknowledged = false
@@ -241,6 +246,7 @@ export class HostServerConnection {
       }
       socket.onmessage = event => {
         messageQueue = messageQueue.then(async () => {
+          if (this.stopped || this.socket !== socket || socket.readyState !== 1) return
           const frame = decodeControl(event.data, this.controlFrameLimits)
           this.lastActiveAt = Date.now()
           if (frame.type === 'hello.ack') {
@@ -288,6 +294,7 @@ export class HostServerConnection {
         if (!acknowledged) finish(new ControlConnectionError('CONNECTION_FAILED', 'Unable to open the Server WebSocket.'))
       }
       socket.onclose = event => {
+        if (this.socket === socket) this.controlGeneration += 1
         const close = async (): Promise<void> => {
           await messageQueue.catch(() => undefined)
           if (this.stopped) { finish(); return }
@@ -373,10 +380,15 @@ export class HostServerConnection {
   }
 
   private async handleConnectIncoming(payload: ConnectIncomingPayload): Promise<void> {
+    const sourceSocket = this.socket
+    const generation = this.controlGeneration
+    const isCurrent = () => !this.stopped && sourceSocket?.readyState === 1
+      && this.socket === sourceSocket && this.controlGeneration === generation
     let descriptor: AuthorizedPeerDevice
     try {
       descriptor = await this.api.deviceFor(payload.clientDeviceId)
     } catch (error) {
+      if (!isCurrent()) return
       this.sendControl('connect.rejected', { connectionId: payload.connectionId })
       this.logger.warn('connection rejected by account authorization', {
         clientDeviceId: shortId(payload.clientDeviceId),
@@ -384,6 +396,7 @@ export class HostServerConnection {
       })
       return
     }
+    if (!isCurrent()) return
     if (descriptor.role !== 'client' || descriptor.deviceId !== payload.clientDeviceId
       || descriptor.identityKey !== payload.clientIdentityKey) {
       this.sendControl('connect.rejected', { connectionId: payload.connectionId })
@@ -400,18 +413,23 @@ export class HostServerConnection {
       })
       return
     }
-    const peer = existing !== undefined
-      && existing.membershipId === descriptor.membershipId
-      && existing.name === descriptor.name
-      && existing.platform === descriptor.platform
-      ? existing
-      : await this.identities.trustPeer({
+    if (existing === undefined) {
+      try {
+        const approvals = typeof this.peerApprovals === 'function' ? this.peerApprovals() : this.peerApprovals
+        approvals?.request({
           deviceId: descriptor.deviceId,
           name: descriptor.name,
           platform: descriptor.platform,
           publicKey: descriptor.identityKey,
           membershipId: descriptor.membershipId,
         })
+      } catch (error) {
+        this.logger.warn('peer approval request unavailable', { code: errorCode(error) })
+      }
+      this.sendControl('connect.rejected', { connectionId: payload.connectionId })
+      return
+    }
+    const peer = existing
     const previous = this.tunnels.get(payload.connectionId)
     previous?.noise.destroy()
     const noise = new NoiseIkSession({

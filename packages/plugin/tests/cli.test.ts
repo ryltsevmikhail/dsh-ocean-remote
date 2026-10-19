@@ -1,4 +1,4 @@
-import { readFile, rm } from 'node:fs/promises'
+import { lstat, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -128,6 +128,7 @@ describe('Remote CLI', () => {
     const directory = serverStorageDirectory(root, 'https://remote.example.com', 'host')
     const identities = new IdentityStore({ directory, env })
     const original = await identities.loadOrCreate('CLI test Host')
+    await identities.close()
     await new ServerCredentialStore(directory).save({
       serverUrl: 'https://remote.example.com',
       deviceId: original.deviceId,
@@ -166,7 +167,9 @@ describe('Remote CLI', () => {
     const env = { DSH_HOME: dshHome, DSH_REMOTE_SERVER: 'https://remote.example.com/' }
     const root = new IdentityStore({ env }).directory
     const directory = serverStorageDirectory(root, 'https://remote.example.com', 'host')
-    const identity = await new IdentityStore({ directory, env }).loadOrCreate('CLI status Host')
+    const identities = new IdentityStore({ directory, env })
+    const identity = await identities.loadOrCreate('CLI status Host')
+    await identities.close()
     await new ServerCredentialStore(directory).save({
       serverUrl: 'https://remote.example.com',
       deviceId: identity.deviceId,
@@ -191,6 +194,122 @@ describe('Remote CLI', () => {
     expect(fetchMock).not.toHaveBeenCalled()
     expect(output.text).not.toContain('access-token-value')
     expect(output.text).not.toContain('refresh-token-value')
+  })
+})
+
+describe('CLI identity lease cleanup', () => {
+  async function fixture() {
+    const home = await mkdtemp(join(tmpdir(), 'dsh-cli-lease-'))
+    directories.push(home)
+    const env = { DSH_HOME: home, DSH_REMOTE_SERVER: 'https://remote.example.com', DSH_REMOTE_DEVICE_NAME: 'Synthetic CLI Host' }
+    const directory = serverStorageDirectory(join(home, 'remote'), env.DSH_REMOTE_SERVER, 'host')
+    const output = writer()
+    const errors = writer()
+    const api = {
+      oauthProviders: vi.fn(async () => [providerInfo('github')]),
+      startOAuthQrLogin: vi.fn(),
+      pollOAuthQrLogin: vi.fn(),
+      bindIdentity: vi.fn(),
+      authenticate: vi.fn(async () => ({
+        schemaVersion: 1 as const, serverUrl: env.DSH_REMOTE_SERVER, deviceId: 'synthetic-device', authorizationMethod: 'account' as const,
+        account: 'synthetic@example.com', ...tokens(),
+      })),
+      revokeCurrentDevice: vi.fn(async () => undefined),
+      authorizeHostWithCode: vi.fn(async () => ({ method: 'account' as const, account: 'synthetic@example.com' })),
+    }
+    const stores: IdentityStore[] = []
+    const dependencies = {
+      env, stdout: output, stderr: errors, createHostApi: () => api,
+      createIdentityStore: (options: ConstructorParameters<typeof IdentityStore>[0]) => {
+        const store = new IdentityStore(options)
+        vi.spyOn(store, 'close')
+        stores.push(store)
+        return store
+      },
+    }
+    const noLease = async () => {
+      await expect(lstat(join(directory, '.identity-owner'))).rejects.toMatchObject({ code: 'ENOENT' })
+      for (const store of stores) expect(store.close).toHaveBeenCalledTimes(1)
+    }
+    return { env, directory, output, errors, api, stores, dependencies, noLease }
+  }
+
+  it('releases register, status and login-list leases and reloads the same DeviceID', async () => {
+    const f = await fixture()
+    await expect(runCli(['register', 'synthetic-code'], f.dependencies)).resolves.toBe(0)
+    await f.noLease()
+    const original = JSON.parse(await readFile(join(f.directory, 'device.json'), 'utf8'))
+    await new ServerCredentialStore(f.directory).save({
+      serverUrl: f.env.DSH_REMOTE_SERVER, deviceId: original.deviceId,
+      authorizationMethod: 'account', account: 'synthetic@example.com', ...tokens(),
+    })
+    for (const command of [['status'], ['login', 'list'], ['register', 'synthetic-code']]) {
+      await expect(runCli(command, f.dependencies)).resolves.toBe(0)
+      await f.noLease()
+      expect(JSON.parse(await readFile(join(f.directory, 'device.json'), 'utf8')).deviceId).toBe(original.deviceId)
+    }
+    expect(f.api.authenticate).toHaveBeenCalledOnce()
+    expect(f.errors.text).toBe('')
+  })
+
+  it('closes stores on logged-out status and unavailable-provider early exits', async () => {
+    const f = await fixture()
+    await expect(runCli(['register', 'synthetic-code'], f.dependencies)).resolves.toBe(0)
+    await expect(runCli(['status'], f.dependencies)).resolves.toBe(0)
+    expect(f.output.text).toContain('Authorization: logged out')
+    await f.noLease()
+    await expect(runCli(['login', 'unavailable'], f.dependencies)).resolves.toBe(2)
+    await f.noLease()
+  })
+
+  it.each(['register', 'status', 'login-list', 'logout'])('releases the lease after %s API failure', async command => {
+    const f = await fixture()
+    await expect(runCli(['register', 'synthetic-code'], f.dependencies)).resolves.toBe(0)
+    const device = JSON.parse(await readFile(join(f.directory, 'device.json'), 'utf8'))
+    await new ServerCredentialStore(f.directory).save({
+      serverUrl: f.env.DSH_REMOTE_SERVER, deviceId: device.deviceId,
+      authorizationMethod: 'account', account: 'synthetic@example.com', ...tokens(),
+    })
+    const fail = async () => { throw new Error('Synthetic account API failure') }
+    f.api.authorizeHostWithCode.mockImplementation(fail)
+    f.api.authenticate.mockImplementation(fail)
+    f.api.oauthProviders.mockImplementation(fail)
+    f.api.revokeCurrentDevice.mockImplementation(fail)
+    const args = command === 'register' ? ['register', 'synthetic-code']
+      : command === 'login-list' ? ['login', 'list'] : [command]
+    await expect(runCli(args, f.dependencies)).resolves.toBe(1)
+    await f.noLease()
+  })
+
+  it('tracks and closes a real store even when its load fails after acquiring a lease', async () => {
+    const f = await fixture()
+    f.env.DSH_REMOTE_DEVICE_NAME = ''
+    await expect(runCli(['register', 'synthetic-code'], f.dependencies)).resolves.toBe(1)
+    expect(f.stores).toHaveLength(1)
+    await f.noLease()
+    expect(f.api.authorizeHostWithCode).not.toHaveBeenCalled()
+    f.env.DSH_REMOTE_DEVICE_NAME = 'Synthetic CLI Host'
+    await expect(runCli(['register', 'synthetic-code'], f.dependencies)).resolves.toBe(0)
+    await f.noLease()
+  })
+
+  it.each([false, true])('returns a fixed safe cleanup error after success or failure (failure=%s)', async failCommand => {
+    const f = await fixture()
+    if (failCommand) f.api.authorizeHostWithCode.mockRejectedValue(new Error('Synthetic command failure'))
+    const close = vi.fn(async () => { throw new Error('PRIVATE-KEY /private/home secret-token') })
+    await expect(runCli(['register', 'synthetic-code'], {
+      ...f.dependencies,
+      createIdentityStore: options => {
+        const store = new IdentityStore(options)
+        const realClose = store.close.bind(store)
+        store.close = vi.fn(async () => { await realClose(); await close() })
+        return store
+      },
+    })).resolves.toBe(1)
+    expect(close).toHaveBeenCalledTimes(1)
+    expect(f.errors.text).toContain('Remote identity cleanup failed.\n')
+    expect(f.errors.text).not.toMatch(/PRIVATE-KEY|private\/home|secret-token/)
+    await f.noLease()
   })
 })
 

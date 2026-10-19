@@ -1,14 +1,9 @@
 import type { IncomingHttpHeaders, IncomingMessage, ServerResponse } from 'node:http'
+import { Socket, isIP } from 'node:net'
 import type { RpcResult } from '@deepseek-ai/dsh-host-apiproxy/api'
 
-/** Namespaced loopback RPC prefix shared by the Host runtime and browser UI. */
-export const CONTROL_RPC_PREFIX = '/ds-harness-remote'
-
-/** Loopback control endpoint carrying the status event stream. */
-export const STATUS_STREAM_ENDPOINT = 'status.events'
-
-/** Full URL path of the loopback status event stream. */
-export const STATUS_STREAM_PATH = `${CONTROL_RPC_PREFIX}/${STATUS_STREAM_ENDPOINT}`
+import { CONTROL_RPC_PREFIX, STATUS_STREAM_ENDPOINT } from './control-constants.js'
+export { CONTROL_RPC_PREFIX, STATUS_STREAM_ENDPOINT, STATUS_STREAM_PATH } from './control-constants.js'
 
 const ENDPOINT_SEGMENT_PATTERN = /^[A-Za-z0-9_$.-]+$/
 const INVALID_REQUEST_RPC_ID = 'invalid-request'
@@ -32,10 +27,14 @@ export interface HostWebServerLike {
   }): () => void | Promise<void>
 }
 
+/** Transport-derived authority, never accepted from RPC payloads or router tags. */
+export interface ControlInvocationAuthority { localApproval: boolean }
+
 export type ControlRouteHandler = (
   endpoint: string,
   payload: unknown,
   signal: AbortSignal,
+  authority?: ControlInvocationAuthority,
 ) => Promise<RpcResult<unknown>>
 
 /** Long-lived loopback response owner for the status event stream. */
@@ -64,7 +63,8 @@ export function registerControlRoute(
 
   // A plain RPC channel owns POST only, so the browser falls back to unary
   // status reads on hosts that do not expose the Web server route.
-  return connection.rpc.handle(CONTROL_RPC_PREFIX, handler, {
+  return connection.rpc.handle(CONTROL_RPC_PREFIX, (endpoint, payload, signal) =>
+    handler(endpoint, payload, signal, { localApproval: false }), {
     authority: 'loopback',
   })
 }
@@ -124,11 +124,38 @@ async function handleControlRequest(
   }
 
   try {
-    const result = await handler(endpoint, message.payload, requestSignal(req))
+    const result = await handler(endpoint, message.payload, requestSignal(req), {
+      localApproval: connection.requestRejection !== undefined && localApprovalRequest(req),
+    })
     writeJson(res, 200, fullResponse(message.rpcId, result))
   } catch (error) {
     writeText(res, 500, `handler failure: ${String(error)}`)
   }
+}
+
+function loopbackAddress(address: string | undefined): boolean {
+  if (address === undefined) return false
+  const value = address.toLowerCase()
+  if (value === '::1') return true
+  const ipv4 = value.startsWith('::ffff:') ? value.slice(7) : value
+  return isIP(ipv4) === 4 && ipv4.startsWith('127.')
+}
+
+function localApprovalRequest(req: IncomingMessage): boolean {
+  const socket = req.socket
+  if (!(socket instanceof Socket) || !loopbackAddress(socket.remoteAddress) ||
+      !loopbackAddress(socket.localAddress) || !socket.localPort || socket.localPort <= 0) return false
+  if (Object.keys(req.headers).some(name => name.toLowerCase() === 'forwarded' || name.toLowerCase().startsWith('x-forwarded'))) return false
+  const site = req.headers['sec-fetch-site']
+  if (site !== undefined && site !== 'same-origin' && site !== 'none') return false
+  const host = req.headers.host
+  const origin = req.headers.origin
+  if (typeof host !== 'string' || typeof origin !== 'string') return false
+  // Require canonical authority spelling and an explicit matching listening port.
+  const match = /^(localhost|127(?:\.[0-9]{1,3}){3}|\[::1\]):([1-9][0-9]*)$/.exec(host)
+  if (!match || Number(match[2]) !== socket.localPort) return false
+  if (match[1] !== 'localhost' && match[1] !== '[::1]' && !loopbackAddress(match[1])) return false
+  return origin === `http://${host}` || origin === `https://${host}`
 }
 
 function endpointFromPath(channel: string, pathname: string): string | undefined {

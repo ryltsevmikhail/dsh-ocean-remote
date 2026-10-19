@@ -1,6 +1,15 @@
 import type { LocaleKey } from '../client-locale.js'
 import type { RemoteFileContentProvider } from '../remote-file-content-provider.js'
 
+export interface PeerTrustStatus {
+  localApproval: boolean
+  host?: import('../peer-trust.js').PeerTrustView
+  client?: import('../peer-trust.js').PeerTrustView
+}
+
+/** Must use local HTTP only; never fall back to native RPC. */
+export type LocalTrustControl = <T>(endpoint: 'trust.status' | 'trust.approve' | 'trust.reject', payload: unknown, signal?: AbortSignal) => Promise<T>
+
 export interface ControlResult<T = unknown> {
   ok: boolean
   value?: T

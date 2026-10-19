@@ -1,4 +1,4 @@
-import { CONTROL_RPC_PREFIX } from './control-route.js'
+import { CONTROL_RPC_PREFIX } from './control-constants.js'
 
 type Fetch = typeof globalThis.fetch
 

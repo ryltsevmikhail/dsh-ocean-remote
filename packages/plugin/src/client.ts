@@ -5,6 +5,7 @@ import { pendingWorkspaceSelectionKey, storedWorkspaceSelection, workspacesReady
 import { connectedProgress, connectionErrorMessage, messageOf } from './client/presentation.js'
 import { createRemoteProgressView, runConnectHostProgress } from './client/progress.js'
 import { createRemotePluginOptions } from './client/settings.js'
+import { createPeerTrustAction } from './client/peer-trust-action.js'
 import { installStyle, installTerminalAvailabilityNotice } from './client/shell.js'
 import type {
   ClientReact,
@@ -19,7 +20,7 @@ import type {
   WorkspacesClientServiceLike,
 } from './client/types.js'
 import { createRemoteWorkspaceAction } from './client/workspaces.js'
-import { CONTROL_RPC_PREFIX, STATUS_STREAM_PATH } from './control-route.js'
+import { CONTROL_RPC_PREFIX, STATUS_STREAM_PATH } from './control-constants.js'
 import { createPluginRouteCatalogGuard, createPluginRouteFetch } from './plugin-route-client.js'
 import {
   createRemoteFileContentProvider,
@@ -84,6 +85,7 @@ window.__ModuleLoader__.load({
     const module = { exports: {} as Record<string, unknown> }
     const React = require('react') as ClientReact
     const RemotePluginOptions = createRemotePluginOptions(React)
+    const PeerTrustAction = createPeerTrustAction(React)
     const RemoteWorkspaceAction = createRemoteWorkspaceAction(React)
     const RemoteProgressView = createRemoteProgressView(React)
     const RemoteSessionHeaderAction = createRemoteSessionHeaderAction(React)
@@ -335,6 +337,24 @@ window.__ModuleLoader__.load({
         if (!result.ok) throw new Error(result.error?.message ?? t('remoteRequestFailed'))
         return result.value as T
       }
+      // Approval never uses native RPC routing: rc.2 ignores the extra authority
+      // option, and the selected remote target must not become an approver.
+      const trustLifetime = new AbortController()
+      ctx.effect(() => () => trustLifetime.abort(), 'ds-harness-remote: local trust HTTP')
+      const localTrustControl = async <T,>(endpoint: 'trust.status' | 'trust.approve' | 'trust.reject', payload: unknown, signal?: AbortSignal): Promise<T> => {
+        if (typeof originalPluginFetch !== 'function') throw new Error('Локальный HTTP недоступен.')
+        const url = new URL(`${CONTROL_RPC_PREFIX}/${endpoint}`, window.location.origin)
+        const response = await originalPluginFetch.call(window, url.href, {
+          method: 'POST', credentials: 'same-origin', mode: 'same-origin', redirect: 'error', cache: 'no-store', referrerPolicy: 'no-referrer',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ type: 'client-request', rpcId: crypto.randomUUID(), method: endpoint, payload }),
+          signal: signal === undefined ? trustLifetime.signal : AbortSignal.any([signal, trustLifetime.signal]),
+        })
+        if (!response.ok) throw new Error('Откройте локальный DSH Web для подтверждения ключа.')
+        const envelope = await response.json() as { result?: ControlResult }
+        if (envelope.result?.ok !== true) throw new Error('Подтверждение отклонено. Обновите список и проверьте полный отпечаток.')
+        return envelope.result.value as T
+      }
       // One pushed status stream feeds every Host-status render in this page.
       // Hosts without the event stream keep answering the unary status control
       // call, which the feed itself polls at the interval this replaced.
@@ -470,6 +490,13 @@ window.__ModuleLoader__.load({
           preferredQrProvider: ctx.locale.getLocale().active === 'zh' ? 'zhihu' : 'github',
         }),
       }, RemoteWorkspaceAction))
+      ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
+        name: 'sidebar.footer.action',
+        id: 'ds-harness-remote-trust',
+        order: -19,
+        locale: localeNamespace,
+        inject: () => ({ control, statusFeed, localTrustControl, signal: trustLifetime.signal }),
+      }, PeerTrustAction))
       // rc.1 Plugins-page configuration surfaces. `plugins.item` is reserved
       // for the official settings companion packages (the Plugins page renders
       // its registrants inside the Official group, so a third-party card there
@@ -481,7 +508,7 @@ window.__ModuleLoader__.load({
         name: 'plugins.row.config',
         key: 'ds-harness-remote#ds-harness-remote',
         locale: localeNamespace,
-        inject: () => ({ control, statusFeed }),
+        inject: () => ({ control, statusFeed, localTrustControl, signal: trustLifetime.signal }),
       }, RemotePluginOptions))
       // Bundle-scoped: installed-bundle details resolve configuration by
       // package name.
@@ -489,7 +516,7 @@ window.__ModuleLoader__.load({
         name: 'plugins.bundle.config',
         key: 'ds-harness-remote',
         locale: localeNamespace,
-        inject: () => ({ control, statusFeed }),
+        inject: () => ({ control, statusFeed, localTrustControl, signal: trustLifetime.signal }),
       }, RemotePluginOptions))
     }
 

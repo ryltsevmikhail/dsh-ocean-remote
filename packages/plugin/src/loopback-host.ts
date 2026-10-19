@@ -28,6 +28,19 @@ export function headerPairs(headers: IncomingHttpHeaders): Array<[string, string
     : (Array.isArray(value) ? value : [value]).map(item => [name, item] as [string, string]))
 }
 
+/** Validate both the raw and decoded target before allocating an outbound request.
+ * Nested/ambiguous encodings fail closed rather than relying on upstream parsing. */
+function safePreviewPath(path: string): boolean {
+  if (/%(?:2f|3f|23|5c)/i.test(path)) return false
+  let decoded: string
+  try { decoded = decodeURIComponent(path) } catch { return false }
+  if (decoded.includes('%') || /[\\\u0000-\u0020\u007f#]/.test(decoded)) return false
+  if (!decoded.startsWith('/') || decoded.startsWith('//')) return false
+  const pathname = decoded.split('?', 1)[0]!
+  const normalized = new URL(pathname, 'http://preview.invalid').pathname
+  return normalized !== '/ds-harness-remote' && !normalized.startsWith('/ds-harness-remote/')
+}
+
 /** Per-peer HTTP/WS proxy to explicit IPv4 loopback ports; never a general TCP tunnel. */
 export class LoopbackHost {
   private readonly handles = new Map<string, Handle>()
@@ -37,9 +50,11 @@ export class LoopbackHost {
   constructor(
     getPorts: () => readonly number[],
     private readonly onClose?: () => void,
+    private readonly getProtectedPorts: () => readonly number[] = () => [],
   ) {
     this.ports = [...getPorts()]
     this.timer = setInterval(() => {
+      this.revokeProtectedHandles()
       for (const [id, handle] of this.handles) if (Date.now() - handle.touched > 60_000) this.close(id)
     }, 10_000)
     this.timer.unref()
@@ -47,17 +62,25 @@ export class LoopbackHost {
 
   setPorts(ports: readonly number[]): void {
     this.ports = [...ports]
-    const allowed = new Set(ports)
-    for (const [id, handle] of this.handles) if (!allowed.has(handle.port)) this.close(id)
+    this.revokeProtectedHandles()
+  }
+
+  private revokeProtectedHandles(): void {
+    const protectedPorts = this.getProtectedPorts()
+    for (const [id, handle] of this.handles) {
+      if (!this.ports.includes(handle.port) || protectedPorts.includes(handle.port)) this.close(id)
+    }
   }
 
   async call(input: unknown): Promise<unknown> {
     if (this.closed) throw new RpcError('TRANSPORT_CLOSED', 'Preview connection closed.')
+    this.revokeProtectedHandles()
     const value = loopbackRequestSchema.parse(input)
-    if (value.op === 'describe') return { ports: [...this.ports] }
+    if (value.op === 'describe') return { ports: this.ports.filter(port => !this.getProtectedPorts().includes(port)) }
     if (value.op === 'close') { this.close(value.id); return { closed: true } }
     if (value.op === 'http.open' || value.op === 'ws.open') {
-      if (!this.ports.includes(value.port)) throw new RpcError('LOOPBACK_PORT_DENIED',
+      if (!safePreviewPath(value.path)) throw new RpcError('LOOPBACK_PATH_DENIED', 'This preview path is protected or ambiguous.')
+      if (!this.ports.includes(value.port) || this.getProtectedPorts().includes(value.port)) throw new RpcError('LOOPBACK_PORT_DENIED',
         'This preview port is not allowed. Add it to loopback.ports in the Host Remote settings and save the access settings. / 请在 Host Remote 设置中允许此预览端口并保存访问设置。')
       if (this.handles.has(value.id)) throw new RpcError('REQUEST_CONFLICT', 'Preview handle is already in use.')
       if (this.handles.size >= LOOPBACK_MAX_CONNECTIONS) throw new RpcError('RATE_LIMITED', 'Too many active preview requests.')
@@ -89,6 +112,7 @@ export class LoopbackHost {
             }
             response.once('readable', ready); response.once('end', ready); response.once('close', ready); response.once('error', fail)
           })
+          this.revokeProtectedHandles()
           if (this.handles.get(value.id) !== handle) throw new Error('closed')
           chunk = response.read(Math.min(response.readableLength || LOOPBACK_CHUNK_BYTES, LOOPBACK_CHUNK_BYTES)) as Buffer | null
           // A short final chunk can be smaller than the requested read size.
@@ -120,6 +144,7 @@ export class LoopbackHost {
             const timer = setTimeout(() => { handle.wake = undefined; resolve() }, 20_000)
             handle.wake = () => { clearTimeout(timer); handle.wake = undefined; resolve() }
           })
+          this.revokeProtectedHandles()
           let bytes = 0
           const messages: LoopbackWsRead['messages'] = []
           while (handle.messages.length > 0 && bytes < LOOPBACK_MAX_WS_BYTES) {

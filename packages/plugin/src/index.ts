@@ -241,6 +241,10 @@ async function activate(
         () => (ctx.get('webServer') as DshWebServerPortLike | undefined)?.port,
         peer,
       ),
+      () => {
+        const port = (ctx.get('webServer') as DshWebServerPortLike | undefined)?.port
+        return typeof port === 'number' && port > 0 ? [port] : []
+      },
     )
 
     let clientRuntime: ClientModeRuntime | undefined

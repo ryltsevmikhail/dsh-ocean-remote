@@ -7,11 +7,15 @@ import {
   formatLocalTime,
   messageOf,
 } from './presentation.js'
-import type { ClientReact, PluginAssociation, PluginSettingsView, RemoteStatus } from './types.js'
+import type { ClientReact, LocalTrustControl, PluginAssociation, PluginSettingsView, RemoteStatus } from './types.js'
+import { createPeerTrustPanel } from './peer-trust-panel.js'
 
 export function createRemotePluginOptions(React: ClientReact) {
+  const PeerTrustPanel = createPeerTrustPanel(React)
   function RemotePluginOptions(props: {
     control: <T>(endpoint: string, payload?: unknown) => Promise<T>
+    localTrustControl?: LocalTrustControl
+    signal?: AbortSignal
     statusFeed: StatusFeed<RemoteStatus>
     t: Translate
     view?: 'summary' | 'page'
@@ -336,6 +340,10 @@ export function createRemotePluginOptions(React: ClientReact) {
             }, hostStatus === undefined ? t('associated') : connectionStatusLabel(hostStatus, t)),
           React.createElement('span', { className: 'dshRemotePluginCardChevron', 'aria-hidden': true }, '⌄'))),
       !open ? null : React.createElement('div', { className: 'dshRemotePluginCardBody' },
+        React.createElement(PeerTrustPanel, {
+          key: JSON.stringify([persistedServerUrl, settingsView?.config.role]),
+          control: props.control, localTrustControl: props.localTrustControl, signal: props.signal,
+        }),
         !loaded
           ? React.createElement('p', { className: 'dshRemoteSettingsState' }, error ?? t('loadingSettings'))
           : association !== undefined
