@@ -108,6 +108,8 @@ export interface RemoteDevice {
   online: boolean
   clientVersion?: string
   harnessVersion?: string
+  /** Passive local key state; discovery never pins or queues approval. */
+  trustState?: 'trusted' | 'unknown' | 'conflict'
 }
 
 export interface OAuthQrSession {

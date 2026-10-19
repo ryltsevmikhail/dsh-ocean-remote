@@ -4,7 +4,7 @@ import type { OAuthProviderInfo } from '../server-api.js'
 import type { StatusFeed } from '../status-stream.js'
 import { deepSeekWorkspaceIcon, gptWorkspaceIcon } from './icons.js'
 import { pendingWorkspaceSelectionKey } from './navigation.js'
-import { connectedClientModeLabel, connectedProgress, formatPlatform, messageOf, requiresSignIn } from './presentation.js'
+import { connectedClientModeLabel, connectedProgress, connectionLayers, formatPlatform, messageOf, pickLayerDevice, pruneFailedHost, requiresSignIn } from './presentation.js'
 import { createRemoteProgressView, runConnectHostProgress } from './progress.js'
 import type {
   ClientReact,
@@ -39,6 +39,9 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
     // The Host being connected right now: its row stays visible as a collapsed
     // summary so the progress panel below it is on screen without scrolling.
     const [connectingHost, setConnectingHost] = React.useState<RemoteDevice | undefined>(undefined)
+    // Kept after a failed attempt so the user gets an explicit Retry instead of
+    // guessing that clicking the row again is the only way forward.
+    const [failedHost, setFailedHost] = React.useState<RemoteDevice | undefined>(undefined)
     const [workspaces, setWorkspaces] = React.useState<RemoteWorkspaceView[]>([])
     const [codexWorkspaces, setCodexWorkspaces] = React.useState<CodexWorkspaceView[]>([])
     const [cursorWorkspaces, setCursorWorkspaces] = React.useState<CursorWorkspaceView[]>([])
@@ -244,6 +247,7 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
               ])
               if (active && run === qrFlowRun.current) {
                 setDevices(nextDevices)
+                setFailedHost(current => pruneFailedHost(current, nextDevices))
                 setStatus(nextStatus)
               }
             } catch (reason) {
@@ -302,6 +306,7 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
     const selectHost = async (host: RemoteDevice): Promise<void> => {
       setBusy(true)
       setError(undefined)
+      setFailedHost(undefined)
       setConnectingHost(host)
       setCodexWorkspaces([])
       setCursorWorkspaces([])
@@ -384,6 +389,7 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
         setDirectory(undefined)
       } catch (reason) {
         setError(messageOf(reason))
+        setFailedHost(host)
       } finally {
         // A failed attempt expands the full Host list again; a successful one
         // is represented by `selectedHost`.
@@ -491,6 +497,7 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
         try {
           const nextDevices = await props.control<RemoteDevice[]>('devices')
           setDevices(nextDevices)
+          setFailedHost(current => pruneFailedHost(current, nextDevices))
           setNeedsAuthorization(false)
           if (selectedHost !== undefined) {
             const nextSelectedHost = nextDevices.find(device => device.deviceId === selectedHost.deviceId)
@@ -542,6 +549,8 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
           // A transport failure must not masquerade as "please sign in".
           const authRequired = requiresSignIn((reason as { remoteCode?: string } | undefined)?.remoteCode)
           setDevices([])
+          // The previous target may belong to another account/Server now.
+          setFailedHost(undefined)
           if (authRequired) setNeedsAuthorization(true)
           else setError(messageOf(reason))
           setSelectedHost(undefined)
@@ -590,12 +599,11 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
     }
 
     React.useEffect(() => {
-      // While the host picker lists Hosts, the pushed status keeps the Host
-      // account line and the connection progress current; the subscription
-      // replays the latest status immediately.
-      if (!open || selectedHost !== undefined) return
+      // Keeps the account line, layers and progress current for the whole open
+      // dialog; a dropped connection must not keep showing "Connected".
+      if (!open) return
       return props.statusFeed.subscribe(setStatus)
-    }, [open, selectedHost])
+    }, [open])
 
     const chooseAnotherHost = (): void => {
       setSelectedHost(undefined)
@@ -655,6 +663,8 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
         }
         const nextStatus = await props.control<RemoteStatus>('status')
         setStatus(nextStatus)
+        // Device IDs are Server-scoped: drop any Retry target from the previous Server.
+        setFailedHost(undefined)
         setLoginServerUrl(nextStatus.serverUrl ?? loginServerUrl.trim())
         setProviderReload(value => value + 1)
       } catch (reason) {
@@ -676,7 +686,9 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
           email: email.trim(),
           password,
         })
-        setDevices(await props.control<RemoteDevice[]>('devices'))
+        const signedInDevices = await props.control<RemoteDevice[]>('devices')
+        setDevices(signedInDevices)
+        setFailedHost(current => pruneFailedHost(current, signedInDevices))
         setStatus(await props.control<RemoteStatus>('status'))
         setNeedsAuthorization(false)
         setPassword('')
@@ -719,6 +731,8 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
       try {
         await props.control('settings.logout')
         setDevices([])
+        // A different account may reuse the dialog; never retry the previous target.
+        setFailedHost(undefined)
         setSelectedHost(undefined)
         setConnectingHost(undefined)
         setWorkspaces([])
@@ -890,6 +904,20 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
     // panel below the list is visible without scrolling past every device.
     const listedHosts = connectingHost === undefined ? devices : [connectingHost]
 
+    // Transport belongs to the connected Host, not to the row the user is looking at.
+    const connectedTargetId = status?.connected === true ? status.connectedTargetDeviceId : undefined
+    const connectedDevice = connectedTargetId === undefined
+      ? undefined
+      : listedHosts.find(device => device.deviceId === connectedTargetId)
+        ?? (selectedHost?.deviceId === connectedTargetId ? selectedHost : undefined)
+    // The Host the user is acting on wins; the connected id only decides whether the
+    // transport layer is satisfied, so a live A cannot mask a failed attempt to B.
+    const layerDevice = pickLayerDevice({ selected: selectedHost, failed: failedHost, connecting: connectingHost, connected: connectedDevice })
+    const layerStates = connectionLayers({ needsAuthorization, device: layerDevice, connectedTargetDeviceId: connectedTargetId })
+    const layerRow = React.createElement('div', { className: 'dshRemoteConnectLayers' },
+      ...layerStates.map(item => React.createElement('span', { key: item.key, className: `dshRemoteConnectLayer is-${item.state}` }, t(item.key))))
+
+
     return React.createElement(React.Fragment, null,
       React.createElement('div', { className: `dshRemoteSidebarEntry${status?.mode === 'remote' ? ' isActive' : ''}${props.wide ? ' isWide' : ' isRail'}` },
         React.createElement(status?.mode === 'remote' && props.wide ? 'div' : 'button', {
@@ -960,6 +988,8 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
             }, t('refreshRemoteShort')),
             React.createElement('button', { type: 'button', className: 'dshRemotePageClose', onClick: () => setOpen(false), 'aria-label': t('close') }, '×'))),
         React.createElement('main', { className: 'dshRemotePageBody' },
+          // Account/trust/transport stay visible even before sign-in succeeds.
+          layerRow,
           status?.mode === 'remote' ? React.createElement('button', {
             type: 'button',
             className: 'dshRemoteLocalLink',
@@ -1075,6 +1105,19 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
                     ].filter(Boolean).join(' · '))),
                     React.createElement('small', null, t(device.online ? 'online' : 'offline')))))) : null,
               React.createElement(RemoteProgressView, { progress, t }),
+              // Explicit connection state: account/trust live in their own surfaces,
+              // this line only reports the transport for the chosen Host.
+              failedHost !== undefined && selectedHost === undefined
+                ? React.createElement('div', { className: 'dshRemoteConnectBar', role: 'status' },
+                  React.createElement('span', null, t('connectFailed', { name: failedHost.name })),
+                  React.createElement('button', {
+                    type: 'button', className: 'dshRemotePageRefresh', disabled: busy,
+                    onClick: () => void selectHost(failedHost),
+                  }, t('connectRetry')))
+                : status?.connected === true
+                  ? React.createElement('div', { className: 'dshRemoteConnectBar', role: 'status' },
+                    React.createElement('span', null, t('connectedVia', { transport: status.transport ?? '' })))
+                  : null,
               selectedHost === undefined
                 ? (connectingHost === undefined ? React.createElement(React.Fragment, null,
                   React.createElement('p', { className: 'dshRemoteHint' }, t('selectHostHint')),

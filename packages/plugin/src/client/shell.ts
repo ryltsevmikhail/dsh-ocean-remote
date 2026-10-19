@@ -7,6 +7,11 @@ export function installStyle(clientModuleId: string): () => void {
   style.dataset.plugin = clientModuleId
   style.dataset.pluginCss = 'dsh-remote'
   style.textContent = [
+    '.dshRemoteConnectBar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:6px 0;color:var(--dsw-alias-label-secondary);font-size:13px}',
+    '.dshRemoteConnectBar button{min-height:32px;padding:0 12px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:inherit;font:inherit;cursor:pointer}',
+    '.dshRemoteConnectBar button:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}.dshRemoteConnectBar button:disabled{opacity:.45;cursor:default}',
+    '.dshRemoteConnectLayers{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:var(--dsw-alias-label-secondary)}',
+    '.dshRemoteConnectLayer{display:inline-flex;align-items:center;gap:6px}.dshRemoteConnectLayer.is-ok::before,.dshRemoteConnectLayer.is-required::before,.dshRemoteConnectLayer.is-trusted::before,.dshRemoteConnectLayer.is-required::before,.dshRemoteConnectLayer.is-conflict::before,.dshRemoteConnectLayer.is-none::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.6}.dshRemoteConnectLayer.is-conflict,.dshRemoteConnectLayer.is-none{color:var(--dsw-alias-label-tertiary)}',
     'html.dshRemoteTargetActive button[aria-label="添加工作区"],html.dshRemoteTargetActive button[aria-label="Add workspace"]{display:none!important}',
     'html.dshRemoteCodexTargetActive [data-composer-card] button[aria-haspopup="listbox"][aria-label="指令"],html.dshRemoteCodexTargetActive [data-composer-card] button[aria-haspopup="listbox"][aria-label="Commands"]{display:none!important}',
     '[data-dsh-remote-hidden-action]{display:none!important}',

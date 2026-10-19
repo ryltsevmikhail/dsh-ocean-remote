@@ -207,3 +207,58 @@ export function connectedClientModeLabel(
   if (mode === 'Relay') return t('remoteNetworkRelay')
   return t('connected')
 }
+
+/** One passive connection indicator; never derived from account membership alone. */
+export interface ConnectionLayer {
+  key: LocaleKey
+  state: 'ok' | 'required' | 'unknown' | 'trusted' | 'conflict' | 'none'
+}
+
+/**
+ * Compute the three independent layers for one Host. The transport layer belongs to
+ * the Host that is actually connected, not to whichever row happens to be selected:
+ * a live connection to A must not mask a failed attempt to B.
+ */
+export function connectionLayers(input: {
+  needsAuthorization: boolean
+  device: { deviceId: string; trustState?: 'trusted' | 'unknown' | 'conflict' } | undefined
+  connectedTargetDeviceId: string | undefined
+}): ConnectionLayer[] {
+  const layers: ConnectionLayer[] = [{
+    key: input.needsAuthorization ? 'layerAccountRequired' : 'layerAccountOk',
+    state: input.needsAuthorization ? 'required' : 'ok',
+  }]
+  if (input.device !== undefined) {
+    const trust = input.device.trustState ?? 'unknown'
+    layers.push({
+      key: trust === 'trusted' ? 'layerTrustOk' : trust === 'conflict' ? 'layerTrustConflict' : 'layerTrustPending',
+      // 'unknown' has no dot style; report it as pending so the row still renders.
+      state: trust === 'trusted' ? 'trusted' : trust === 'conflict' ? 'conflict' : 'required',
+    })
+  }
+  if (input.connectedTargetDeviceId === undefined || input.connectedTargetDeviceId !== input.device?.deviceId) {
+    layers.push({ key: 'layerTransportNone', state: 'none' })
+  }
+  return layers
+}
+
+/** A failed target may be retried only while it is still a known, online Host. */
+export function pruneFailedHost<T extends { deviceId: string; online: boolean }>(
+  previous: T | undefined,
+  devices: readonly T[],
+): T | undefined {
+  return previous === undefined ? undefined : devices.find(device => device.deviceId === previous.deviceId && device.online)
+}
+
+/**
+ * Which Host the layer row describes. The row the user acts on wins over the Host
+ * that happens to be connected, so a failed attempt to B is never hidden by a live A.
+ */
+export function pickLayerDevice<T>(candidates: {
+  selected?: T
+  failed?: T
+  connecting?: T
+  connected?: T
+}): T | undefined {
+  return candidates.selected ?? candidates.failed ?? candidates.connecting ?? candidates.connected
+}
