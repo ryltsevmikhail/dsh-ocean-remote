@@ -914,11 +914,10 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
     // transport layer is satisfied, so a live A cannot mask a failed attempt to B.
     const layerDevice = pickLayerDevice({ selected: selectedHost, failed: failedHost, connecting: connectingHost, connected: connectedDevice })
     const layerStates = connectionLayers({ needsAuthorization, device: layerDevice, connectedTargetDeviceId: connectedTargetId })
-    const layerRow = React.createElement(React.Fragment, null,
-      React.createElement('div', { className: 'dshRemoteConnectLayers' },
-        ...layerStates.map(item => React.createElement('span', { key: item.key, className: `dshRemoteConnectLayer is-${item.state}` }, t(item.key)))),
+    const layerRow = React.createElement('div', { className: 'dshRemoteConnectLayers' },
+      ...layerStates.map(item => React.createElement('span', { key: item.key, className: `dshRemoteConnectLayer is-${item.state}` }, t(item.key))),
       layerStates.some(item => item.state === 'conflict')
-        ? React.createElement('p', { className: 'dshRemoteTrustHint' }, t('trustConflictHint'))
+        ? React.createElement('p', { key: 'trust-conflict-hint', className: 'dshRemoteTrustHint' }, t('trustConflictHint'))
         : null)
 
 

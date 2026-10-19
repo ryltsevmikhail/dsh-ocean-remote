@@ -1677,7 +1677,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
     layerTrustOk: "Key: trusted",
     layerTrustPending: "Key: approval required",
     layerTrustConflict: "Key: changed",
-    trustConflictHint: "The Host key changed. Remove trust in Keys, verify the new SHA-256 out of band, then approve it.",
+    trustConflictHint: "The Host key changed. Remove trust in Keys, connect again, verify the new SHA-256 out of band, then approve it.",
     layerTransportNone: "Transport: no connection",
     connectFailed: "Could not connect to {name}.",
     connectRetry: "Retry connection",
@@ -1972,7 +1972,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
     layerTrustOk: "\u5BC6\u94A5\uFF1A\u5DF2\u4FE1\u4EFB",
     layerTrustPending: "\u5BC6\u94A5\uFF1A\u9700\u8981\u786E\u8BA4",
     layerTrustConflict: "\u5BC6\u94A5\uFF1A\u5DF2\u53D8\u66F4",
-    trustConflictHint: "\u5BC6\u94A5\u5DF2\u53D8\u66F4\u3002\u8BF7\u5728\u300C\u5BC6\u94A5\u300D\u4E2D\u79FB\u9664\u4FE1\u4EFB\uFF0C\u6309\u72EC\u7ACB\u6E20\u9053\u6838\u5BF9\u65B0\u7684 SHA-256 \u5E76\u91CD\u65B0\u786E\u8BA4\u3002",
+    trustConflictHint: "\u5BC6\u94A5\u5DF2\u53D8\u66F4\u3002\u8BF7\u5728\u300C\u5BC6\u94A5\u300D\u4E2D\u79FB\u9664\u4FE1\u4EFB\uFF0C\u91CD\u65B0\u8FDE\u63A5\uFF0C\u6309\u72EC\u7ACB\u6E20\u9053\u6838\u5BF9\u65B0\u7684 SHA-256 \u5E76\u786E\u8BA4\u3002",
     layerTransportNone: "\u4F20\u8F93\uFF1A\u672A\u8FDE\u63A5",
     connectFailed: "\u65E0\u6CD5\u8FDE\u63A5\u5230 {name}\u3002",
     connectRetry: "\u91CD\u8BD5\u8FDE\u63A5",
@@ -3499,7 +3499,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
       ".dshRemoteConnectBar button{min-height:32px;padding:0 12px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:inherit;font:inherit;cursor:pointer}",
       ".dshRemoteConnectBar button:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}.dshRemoteConnectBar button:disabled{opacity:.45;cursor:default}",
       ".dshRemoteConnectLayers{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:var(--dsw-alias-label-secondary)}",
-      '.dshRemoteConnectLayer{display:inline-flex;align-items:center;gap:6px}.dshRemoteConnectLayer.is-ok::before,.dshRemoteConnectLayer.is-required::before,.dshRemoteConnectLayer.is-trusted::before,.dshRemoteConnectLayer.is-required::before,.dshRemoteConnectLayer.is-conflict::before,.dshRemoteConnectLayer.is-none::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.6}.dshRemoteConnectLayer.is-conflict,.dshRemoteConnectLayer.is-none{color:var(--dsw-alias-label-tertiary)}.dshRemoteTrustHint{margin:6px 0 0;font-size:12px;line-height:1.4;color:var(--dsw-alias-label-tertiary)}',
+      '.dshRemoteConnectLayer{display:inline-flex;align-items:center;gap:6px}.dshRemoteConnectLayer.is-ok::before,.dshRemoteConnectLayer.is-required::before,.dshRemoteConnectLayer.is-trusted::before,.dshRemoteConnectLayer.is-required::before,.dshRemoteConnectLayer.is-conflict::before,.dshRemoteConnectLayer.is-none::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.6}.dshRemoteConnectLayer.is-conflict,.dshRemoteConnectLayer.is-none{color:var(--dsw-alias-label-tertiary)}.dshRemoteTrustHint{flex-basis:100%;margin:0;font-size:12px;line-height:1.4;color:var(--dsw-alias-label-tertiary)}',
       'html.dshRemoteTargetActive button[aria-label="\u6DFB\u52A0\u5DE5\u4F5C\u533A"],html.dshRemoteTargetActive button[aria-label="Add workspace"]{display:none!important}',
       'html.dshRemoteCodexTargetActive [data-composer-card] button[aria-haspopup="listbox"][aria-label="\u6307\u4EE4"],html.dshRemoteCodexTargetActive [data-composer-card] button[aria-haspopup="listbox"][aria-label="Commands"]{display:none!important}',
       "[data-dsh-remote-hidden-action]{display:none!important}",
@@ -3982,14 +3982,10 @@ Minimum version required to store current data is: ` + bestVersion + `.
           )
         ) : null
       ) : null, listedHosts = connectingHost === void 0 ? devices : [connectingHost], connectedTargetId = status?.connected === !0 ? status.connectedTargetDeviceId : void 0, connectedDevice = connectedTargetId === void 0 ? void 0 : listedHosts.find((device) => device.deviceId === connectedTargetId) ?? (selectedHost?.deviceId === connectedTargetId ? selectedHost : void 0), layerDevice = pickLayerDevice({ selected: selectedHost, failed: failedHost, connecting: connectingHost, connected: connectedDevice }), layerStates = connectionLayers({ needsAuthorization, device: layerDevice, connectedTargetDeviceId: connectedTargetId }), layerRow = React.createElement(
-        React.Fragment,
-        null,
-        React.createElement(
-          "div",
-          { className: "dshRemoteConnectLayers" },
-          ...layerStates.map((item) => React.createElement("span", { key: item.key, className: `dshRemoteConnectLayer is-${item.state}` }, t(item.key)))
-        ),
-        layerStates.some((item) => item.state === "conflict") ? React.createElement("p", { className: "dshRemoteTrustHint" }, t("trustConflictHint")) : null
+        "div",
+        { className: "dshRemoteConnectLayers" },
+        ...layerStates.map((item) => React.createElement("span", { key: item.key, className: `dshRemoteConnectLayer is-${item.state}` }, t(item.key))),
+        layerStates.some((item) => item.state === "conflict") ? React.createElement("p", { key: "trust-conflict-hint", className: "dshRemoteTrustHint" }, t("trustConflictHint")) : null
       );
       return React.createElement(
         React.Fragment,
