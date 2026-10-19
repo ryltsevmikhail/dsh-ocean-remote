@@ -87,13 +87,17 @@ export function createPeerTrustPanel(React: ClientReact) {
     const revoke = async (role: 'host' | 'client', deviceId: string, name: string): Promise<void> => {
       const signal = lifetime.current?.signal
       if (!signal || signal.aborted || locked.current || !props.localTrustControl || status?.localApproval !== true) return
-      if (typeof window !== 'undefined' && typeof window.confirm === 'function'
-        && !window.confirm(`Снять доверие с устройства ${name}? Следующее подключение потребует нового подтверждения ключа.`)) return
+      if (typeof window === 'undefined' || typeof window.confirm !== 'function') {
+        setError('Подтверждение недоступно в этом окне. Действие отменено.')
+        return
+      }
+      if (!window.confirm(`Снять доверие с устройства ${name}? Следующее подключение потребует нового подтверждения ключа.`)) return
       locked.current = true
       setBusy(true)
       setError('')
       try {
-        await props.localTrustControl('trust.revoke', { role, deviceId }, signal)
+        const result = await props.localTrustControl<{ revoked?: boolean }>('trust.revoke', { role, deviceId }, signal)
+        if (result?.revoked === false) setError('Ключ уже не сохранён: обновите список и проверьте состояние.')
       } catch {
         if (!signal.aborted) setError('Не удалось снять доверие. Обновите состояние и повторите.')
       } finally {
@@ -149,7 +153,7 @@ export function createPeerTrustPanel(React: ClientReact) {
             h('code', { style: { overflowWrap: 'anywhere' } }, pin.fullFingerprint),
             h('p', null, pin.provenance === 'manual' ? 'Подтверждён вручную.' : 'Legacy: происхождение подтверждения неизвестно; не считается ручным подтверждением.'),
             h('button', {
-              type: 'button', disabled: busy || !writable || validView?.role !== role,
+              type: 'button', disabled: busy || !writable || validView?.available !== true || validView?.role !== role,
               'aria-label': `Снять доверие: ${role} ${pin.deviceId}`,
               onClick: () => void revoke(role, pin.deviceId, pin.name),
             }, 'Снять доверие'))))

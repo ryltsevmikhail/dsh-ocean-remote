@@ -69,7 +69,7 @@ describe('control trust authority transitions (unit)', () => {
       const login = control.handle(endpoint, { email: 'synthetic@example.invalid', password: 'synthetic-password' }, signal)
       try {
         await started.promise
-        for (const blocked of ['trust.approve', 'trust.reject', 'client.account.login', 'client.account.qr.start']) {
+        for (const blocked of ['trust.approve', 'trust.reject', 'trust.revoke', 'client.account.login', 'client.account.qr.start']) {
           await expect(control.handle(blocked, action, signal, local)).resolves.toMatchObject(busy)
         }
         expect(client.approvePeer).not.toHaveBeenCalled()

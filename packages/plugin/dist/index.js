@@ -42416,10 +42416,13 @@ var HostPluginRuntime = class {
   }
   async revokePeer(deviceId) {
     await this.invalidatePeerApprovals();
-    const revoked = await this.identities.revokePeer(deviceId);
-    if (revoked) await this.connections.revoke(deviceId);
-    this.renewPeerApprovals();
-    return revoked;
+    try {
+      const revoked = await this.identities.revokePeer(deviceId);
+      if (revoked) await this.connections.revoke(deviceId);
+      return revoked;
+    } finally {
+      this.renewPeerApprovals();
+    }
   }
   codexStatus() {
     return this.codex.status();

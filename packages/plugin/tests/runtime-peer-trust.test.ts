@@ -82,8 +82,10 @@ describe('runtime peer trust authority', () => {
       const next = queue(host).request(peer)!
       vi.spyOn(store, 'revokePeer').mockRejectedValueOnce(new Error('durability failed'))
       await expect(host.revokePeer(peer.deviceId)).rejects.toThrow('durability failed')
-      expect(host.peerTrustStatus().available).toBe(false)
-      await expect(host.approvePeer(next)).rejects.toMatchObject({ code: 'PEER_APPROVAL_UNAVAILABLE' })
+      // A failed revocation must not leave the Host unable to approve anything.
+      expect(host.peerTrustStatus().available).toBe(true)
+      // The queue was renewed, so a fresh candidate is required.
+      await expect(host.approvePeer(queue(host).request(peer)!)).resolves.toMatchObject({ deviceId: peer.deviceId })
     } finally { await host.close() }
   })
 
