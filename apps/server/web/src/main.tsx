@@ -1,6 +1,6 @@
 import { createRoot } from 'react-dom/client'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { api, RequestError, type Account, type DeviceList } from './api'
+import { api, RequestError, revokeDevice, type Account, type Device, type DeviceList } from './api'
 import './ocean.css'
 
 // Ocean's deliberately small, independently authored status console.
@@ -13,6 +13,7 @@ function App() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [refresh, setRefresh] = useState(0)
+  const [revoking, setRevoking] = useState<string>()
   const heading = useRef<HTMLHeadingElement>(null)
   const accountWasKnown = useRef(false)
 
@@ -84,6 +85,19 @@ function App() {
     finally { setBusy(false) }
   }
 
+  async function revoke(device: Device) {
+    if (busy || revoking !== undefined) return
+    // Irreversible for that device: require an explicit confirmation naming it.
+    if (!window.confirm(`Отозвать устройство «${device.name}»? Оно потеряет доступ к этому серверу и должно будет авторизоваться заново.`)) return
+    setRevoking(device.deviceId)
+    setError('')
+    try {
+      await revokeDevice(device.deviceId)
+      setRefresh(value => value + 1)
+    } catch (reason) { setError(message(reason)) }
+    finally { setRevoking(undefined) }
+  }
+
   const items = [...(devices?.items ?? [])].sort((a, b) => Number(b.online) - Number(a.online))
   return <div className={`ocean-console ${account ? 'dashboard' : 'auth'}`}>
     <header className="site-header">
@@ -131,11 +145,13 @@ function App() {
           {devices && <div className="device-table" tabIndex={0} role="region" aria-label="Список устройств">
             <table>
               <caption>{items.filter(item => item.online).length} из {items.length} устройств онлайн</caption>
-              <thead><tr><th>Имя</th><th>Статус</th><th>Роль</th><th>Система</th><th>Плагин</th><th>DSH</th></tr></thead>
+              <thead><tr><th>Имя</th><th>Статус</th><th>Роль</th><th>Система</th><th>Плагин</th><th>DSH</th><th><span className="visually-hidden">Действия</span></th></tr></thead>
               <tbody>{items.map(item => <tr key={item.deviceId}>
                 <th scope="row">{item.name}</th><td><span className={`device-status ${item.online ? 'online' : ''}`}>{item.online ? 'Онлайн' : 'Офлайн'}</span></td>
                 <td>{item.role === 'host' ? 'Хост' : 'Клиент'}</td><td>{item.platform}</td>
                 <td>{item.clientVersion}</td><td>{item.harnessVersion ?? '—'}</td>
+                <td><button type="button" className="revoke" disabled={busy || revoking !== undefined}
+                  onClick={() => void revoke(item)}>{revoking === item.deviceId ? 'Отзываем…' : 'Отозвать'}</button></td>
               </tr>)}</tbody>
             </table>
             {!items.length && <div className="empty-state"><span className="empty-symbol" aria-hidden="true">↔</span><h3>Пока ни одного устройства</h3><p>Зарегистрированных устройств пока нет.<br />Войдите в этот аккаунт через плагин DSH — и ваше устройство появится здесь.</p></div>}

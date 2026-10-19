@@ -10,11 +10,11 @@ export class RequestError extends Error {
 }
 
 // Cookie-based, same-origin only. Never persist or log the login response token.
-export async function api<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+export async function api<T>(path: string, body?: unknown, signal?: AbortSignal, method?: 'DELETE'): Promise<T> {
   let response: Response
   try {
     response = await fetch(`/api/v1${path}`, {
-      method: body === undefined ? 'GET' : 'POST',
+      method: method ?? (body === undefined ? 'GET' : 'POST'),
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -30,4 +30,9 @@ export async function api<T>(path: string, body?: unknown, signal?: AbortSignal)
   }
   try { return await response.json() as T }
   catch { throw new RequestError('Некорректный ответ сервера.', response.status) }
+}
+
+/** Owner-only: revoke another device of this account from the console session. */
+export function revokeDevice(deviceId: string, signal?: AbortSignal): Promise<{ status: string }> {
+  return api(`/account/devices/${encodeURIComponent(deviceId)}`, undefined, signal, 'DELETE')
 }

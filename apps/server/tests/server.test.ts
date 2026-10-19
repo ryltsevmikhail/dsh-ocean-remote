@@ -328,4 +328,25 @@ describe('control authorization and encrypted relay', () => {
     expect(await ctx.host.next('error')).toMatchObject({ connectionId: incoming.connectionId })
     expect((await request('/devices', 'GET', undefined, second.accessToken)).status).toBe(401)
   })
+
+  it('lets the account owner revoke another device and closes its live socket', async () => {
+    const ctx = await connection(), target = await device(), wire = await socket(target)
+    await wire.next('hello.ack')
+    wire.send('connect.request', { hostDeviceId: ctx.h.deviceId, preferredTransports: ['relay'] })
+    const incoming = await ctx.host.next('connect.incoming')
+    ctx.host.send('connect.accepted', { connectionId: incoming.connectionId })
+    await wire.next('connect.accepted')
+    const closed = once(wire.ws, 'close')
+    // A device bearer token must not reach the owner route.
+    expect((await request(`/account/devices/${target.deviceId}`, 'DELETE', undefined, target.accessToken)).status).toBe(401)
+    const revoked = await request(`/account/devices/${target.deviceId}`, 'DELETE', undefined, accountToken)
+    expect(revoked.status).toBe(200)
+    await closed
+    expect((await request('/account/devices', 'GET', undefined, accountToken)).data.items
+      .some((item: { deviceId: string }) => item.deviceId === target.deviceId)).toBe(false)
+    expect((await request('/me', 'GET', undefined, target.accessToken)).status).toBe(401)
+    // Repeating the revoke, or naming an unknown device, cannot silently succeed.
+    expect((await request(`/account/devices/${target.deviceId}`, 'DELETE', undefined, accountToken)).status).toBe(403)
+    expect((await request(`/account/devices/${randomUUID()}`, 'DELETE', undefined, accountToken)).status).toBe(404)
+  })
 })

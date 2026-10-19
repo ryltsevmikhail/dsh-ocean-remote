@@ -128,6 +128,15 @@ export function createRemoteServer(config: Config) {
     if (method === 'DELETE' && path === '/api/v1/devices/self') {
       store.revoke(deviceAuth(req).descriptor.deviceId); json(res, 200, { status: 'revoked' }); return
     }
+    // Owner action: an account session may revoke any device of this account, so a
+    // lost or compromised machine can be cut off without holding its credential.
+    const ownerRevoke = /^\/api\/v1\/account\/devices\/([^/]+)$/.exec(path)
+    if (method === 'DELETE' && ownerRevoke) {
+      accountAuth(req)
+      store.revoke(ownerRevoke[1]!)
+      json(res, 200, { status: 'revoked' })
+      return
+    }
     if (method === 'GET' && path === '/api/v1/me') { json(res, 200, descriptor(deviceAuth(req))); return }
     if (method === 'GET' && path === '/api/v1/devices') {
       const source = deviceAuth(req)
