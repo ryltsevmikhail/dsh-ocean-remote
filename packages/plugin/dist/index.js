@@ -38627,7 +38627,7 @@ var PluginControlRuntime = class {
       this.host = runtimes.host;
     }
     this.config = next;
-    return { ...await this.settingsView(), ...role !== currentRole && this.switchServer === void 0 ? { applies: "restart" } : {} };
+    return { ...await this.settingsView(), applies: role !== currentRole && this.switchServer === void 0 ? "restart" : "live" };
   }
   async setDevelopment(payload) {
     if (this.settings === void 0) throw new ClientModeError("SETTINGS_UNAVAILABLE", "DSH user settings are unavailable in this profile.");

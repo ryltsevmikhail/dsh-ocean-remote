@@ -25,7 +25,11 @@ export function createRemotePluginOptions(React: ClientReact) {
     const [serverUrl, setServerUrl] = React.useState('')
     const [portsBusy, setPortsBusy] = React.useState(false)
     const [previewPorts, setPreviewPorts] = React.useState('')
-    const role = 'host' as const
+    const [roleValue, setRoleValue] = React.useState<'host' | 'client'>('host')
+    const [roleBusy, setRoleBusy] = React.useState(false)
+    const [hostEmail, setHostEmail] = React.useState('')
+    const [hostPassword, setHostPassword] = React.useState('')
+    const [hostLoginBusy, setHostLoginBusy] = React.useState(false)
     const [registrationCode, setRegistrationCode] = React.useState('')
     const [associations, setAssociations] = React.useState<Partial<Record<'host' | 'client', PluginAssociation>>>({})
     const [loaded, setLoaded] = React.useState(false)
@@ -49,19 +53,23 @@ export function createRemotePluginOptions(React: ClientReact) {
     const [error, setError] = React.useState<string | undefined>(undefined)
     const [settingsView, setSettingsView] = React.useState<PluginSettingsView | undefined>(undefined)
     const associationReadRun = React.useRef(0)
+    const idSuffix = React.useRef(`-${Math.random().toString(36).slice(2, 8)}`).current
+    const fieldId = (name: string): string => `dsh-remote-${name}${idSuffix}`
     const persistedServerUrl = settingsView?.config.serverUrl ?? ''
-    const association = associations.client ?? associations.host
+    const association = roleValue === 'client' ? associations.client : associations.host
     const serverDirty = settingsView !== undefined && serverUrl !== persistedServerUrl
     const draftDirty = serverDirty
 
     const applyAssociations = (view: PluginSettingsView): void => {
-      setAssociations(view.associations ?? (view.association === undefined ? {} : { host: view.association }))
+      const currentRole = view.config.role === 'client' ? 'client' : 'host'
+      setAssociations(view.associations ?? (view.association === undefined ? {} : { [currentRole]: view.association }))
     }
 
     const applyView = (view: PluginSettingsView, updateAssociations = true): void => {
       setSettingsView(view)
       setServerUrl(view.config.serverUrl ?? '')
-      setTerminalEnabled(view.config.terminal?.enabled ?? true)
+      setTerminalEnabled(view.config.terminal?.enabled ?? false)
+      setRoleValue(view.config.role === 'client' ? 'client' : 'host')
       setPreviewPorts((view.config.loopback?.ports ?? []).join(', '))
       setAcpBackends((view.config.acp?.backends ?? []).map(item => ({ id: item.id, enabled: item.enabled !== false })))
       setAcpAvailability(view.acpAvailability ?? {})
@@ -83,7 +91,7 @@ export function createRemotePluginOptions(React: ClientReact) {
     }
 
     React.useEffect(() => {
-      void load().catch(reason => setError(messageOf(reason)))
+      void load().catch(reason => failWith(reason))
     }, [])
 
     React.useEffect(() => {
@@ -108,6 +116,15 @@ export function createRemotePluginOptions(React: ClientReact) {
       return () => { active = false; unsubscribe() }
     }, [props.statusFeed])
 
+    // Native override errors name the mechanism but not the fix; users otherwise
+    // cannot tell why Save or a role switch keeps failing.
+    const failWith = (reason: unknown): void => {
+      const native = messageOf(reason)
+      setError(/overridden by a home patch or command-line overlay/i.test(native)
+        ? `${t('settingsOverridden')} (${native})`
+        : native)
+    }
+
     const save = async (event?: Event): Promise<void> => {
       event?.preventDefault()
       if (!writable || !serverDirty) return
@@ -121,7 +138,7 @@ export function createRemotePluginOptions(React: ClientReact) {
         applyView(view)
         setNotice({ key: view.applies === 'live' ? 'serverApplied' : 'serverSaved' })
       } catch (reason) {
-        setError(messageOf(reason))
+        failWith(reason)
       } finally {
         setBusy(false)
       }
@@ -138,7 +155,7 @@ export function createRemotePluginOptions(React: ClientReact) {
         setRegistrationCode('')
         setNotice({ key: 'signedOut' })
       } catch (reason) {
-        setError(messageOf(reason))
+        failWith(reason)
       } finally {
         setBusy(false)
       }
@@ -153,7 +170,7 @@ export function createRemotePluginOptions(React: ClientReact) {
         setHostStatus(status.host)
         setNotice({ key: 'reconnectStarted' })
       } catch (reason) {
-        setError(messageOf(reason))
+        failWith(reason)
       } finally {
         setReconnectBusy(false)
       }
@@ -167,7 +184,7 @@ export function createRemotePluginOptions(React: ClientReact) {
         const status = await props.control<RemoteStatus>('host.authorization.set', { enabled })
         setHostStatus(status.host)
       } catch (reason) {
-        setError(messageOf(reason))
+        failWith(reason)
       } finally {
         setBusy(false)
       }
@@ -187,7 +204,7 @@ export function createRemotePluginOptions(React: ClientReact) {
         setNotice({ key: 'terminalSaved' })
       } catch (reason) {
         setTerminalEnabled(previous)
-        setError(messageOf(reason))
+        failWith(reason)
       } finally {
         setTerminalBusy(false)
       }
@@ -203,7 +220,7 @@ export function createRemotePluginOptions(React: ClientReact) {
         applyView(view)
         setNotice({ key: 'developmentSaved' })
       } catch (reason) {
-        setError(messageOf(reason))
+        failWith(reason)
       } finally {
         setPortsBusy(false)
       }
@@ -225,7 +242,7 @@ export function createRemotePluginOptions(React: ClientReact) {
         setNotice({ key: available ? 'acpAvailable' : 'acpUnavailable' })
         window.setTimeout(() => setAcpCheckResults(current => ({ ...current, [backend]: undefined })), 5_000)
       } catch (reason) {
-        setError(messageOf(reason))
+        failWith(reason)
       } finally {
         setAcpChecking(current => ({ ...current, [backend]: false }))
       }
@@ -244,7 +261,7 @@ export function createRemotePluginOptions(React: ClientReact) {
         setAcpCommand('')
         setAcpArguments('acp')
       } catch (reason) {
-        setError(messageOf(reason))
+        failWith(reason)
       } finally {
         setBusy(false)
       }
@@ -257,9 +274,45 @@ export function createRemotePluginOptions(React: ClientReact) {
         const view = await props.control<PluginSettingsView>('settings.acp.remove', { id: backend })
         applyView(view)
       } catch (reason) {
-        setError(messageOf(reason))
+        failWith(reason)
       } finally {
         setBusy(false)
+      }
+    }
+
+    const changeRole = async (next: 'host' | 'client'): Promise<void> => {
+      if (next === roleValue) return
+      setRoleBusy(true)
+      setError(undefined)
+      setNotice(undefined)
+      // The Host form unmounts on role change; never resurrect a typed password.
+      setHostPassword('')
+      try {
+        const view = await props.control<PluginSettingsView>('settings.role.set', { role: next })
+        applyView(view)
+        setNotice({ key: view.applies === 'restart' ? 'roleSavedRestart' : 'roleSaved' })
+      } catch (reason) {
+        failWith(reason)
+      } finally {
+        setRoleBusy(false)
+      }
+    }
+
+    const submitHostLogin = async (event: Event): Promise<void> => {
+      event.preventDefault()
+      setHostLoginBusy(true)
+      setError(undefined)
+      setNotice(undefined)
+      try {
+        await props.control('host.account.login', { email: hostEmail.trim(), password: hostPassword })
+        setNotice({ key: 'hostLoginOk' })
+        applyView(await props.control<PluginSettingsView>('settings.get'))
+      } catch (reason) {
+        failWith(reason)
+      } finally {
+        // Never keep the password in component state after the attempt.
+        setHostPassword('')
+        setHostLoginBusy(false)
       }
     }
 
@@ -269,6 +322,38 @@ export function createRemotePluginOptions(React: ClientReact) {
       setNotice(undefined)
       setError(undefined)
     }
+
+    const roleSetting = React.createElement('div', { className: 'dshRemotePathField' },
+      React.createElement('label', { htmlFor: fieldId('role') }, t('role')),
+      React.createElement('select', {
+        id: fieldId('role'), value: roleValue, disabled: busy || roleBusy || hostLoginBusy || !writable, 'aria-label': t('role'),
+        onChange: (event: Event) => void changeRole((event.target as HTMLSelectElement).value === 'client' ? 'client' : 'host'),
+      },
+      React.createElement('option', { value: 'host' }, t('roleHost')),
+      React.createElement('option', { value: 'client' }, t('roleClient'))),
+      React.createElement('small', null, t('roleHint')))
+
+    const hostLoginSetting = roleValue !== 'host' ? null : React.createElement('section', { className: 'dshRemoteDevelopmentSettings' },
+      React.createElement('div', { className: 'dshRemoteSettingsTop' },
+        React.createElement('div', null,
+          React.createElement('strong', null, t('hostLoginTitle')),
+          React.createElement('p', null, t('hostLoginHint')))),
+      React.createElement('form', { className: 'dshRemoteSettings', noValidate: true, onSubmit: (event: Event) => void submitHostLogin(event) },
+        React.createElement('div', { className: 'dshRemoteField' },
+          React.createElement('label', { htmlFor: fieldId('host-email') }, t('serverAccountEmail')),
+          React.createElement('input', {
+            id: fieldId('host-email'), type: 'email', autoComplete: 'username', value: hostEmail,
+            disabled: busy || hostLoginBusy || !writable, required: true,
+            onChange: (event: Event) => setHostEmail((event.target as HTMLInputElement).value),
+          })),
+        React.createElement('div', { className: 'dshRemoteField' },
+          React.createElement('label', { htmlFor: fieldId('host-password') }, t('serverAccountPassword')),
+          React.createElement('input', {
+            id: fieldId('host-password'), type: 'password', autoComplete: 'current-password', value: hostPassword,
+            disabled: busy || hostLoginBusy || !writable, required: true,
+            onChange: (event: Event) => setHostPassword((event.target as HTMLInputElement).value),
+          })),
+        React.createElement('button', { type: 'submit', className: 'dshRemoteSave', disabled: busy || roleBusy || hostLoginBusy || !writable || hostEmail.trim() === '' || hostPassword === '' }, t(hostLoginBusy ? 'saving' : 'hostLoginSubmit'))))
 
     const developmentSetting = React.createElement('section', { className: 'dshRemoteDevelopmentSettings' },
       React.createElement('div', { className: 'dshRemoteAuthorizationSetting' },
@@ -280,10 +365,10 @@ export function createRemotePluginOptions(React: ClientReact) {
           onChange: (event: Event) => void setTerminalRemote((event.target as HTMLInputElement).checked)
         })),
       React.createElement('div', { className: 'dshRemotePathField' },
-        React.createElement('label', { htmlFor: 'dsh-remote-preview-ports' }, t('previewPorts')),
+        React.createElement('label', { htmlFor: fieldId('preview-ports') }, t('previewPorts')),
         React.createElement('div', { className: 'dshRemotePortsRow' },
           React.createElement('input', {
-            id: 'dsh-remote-preview-ports', value: previewPorts, maxLength: 128, size: 24, disabled: !writable,
+            id: fieldId('preview-ports'), value: previewPorts, maxLength: 128, size: 24, disabled: !writable,
             placeholder: '3000, 5173', 'aria-label': t('previewPorts'),
             onChange: (event: Event) => setPreviewPorts((event.target as HTMLInputElement).value)
           }),
@@ -310,7 +395,7 @@ export function createRemotePluginOptions(React: ClientReact) {
         ['codex', 'cursor', 'antigravity', 'pi', 'claude', 'opencode'].includes(item.id) ? null : React.createElement('a', { href: `#remove-acp-${item.id}`, className: 'dshRemoteAcpRemoveLink', onClick: (event: Event) => { event.preventDefault(); void removeAcp(item.id) } }, t('removeAcp')),
         React.createElement('input', {
           type: 'checkbox', role: 'switch', checked: (item.id === 'codex' ? item.enabled : settingsView?.config.acp?.enabled === true && item.enabled) && acpAvailability[item.id] === true, 'aria-label': item.id, disabled: busy || !writable || acpChecking[item.id] === true || acpAvailability[item.id] !== true,
-          onChange: (event: Event) => void props.control<PluginSettingsView>('settings.acp.set', { backend: item.id, enabled: (event.target as HTMLInputElement).checked }).then(view => { applyView(view); setAcpBackends((view.config.acp?.backends ?? []).map(v => ({ id: v.id, enabled: v.enabled !== false }))) }).catch(reason => setError(messageOf(reason)))
+          onChange: (event: Event) => void props.control<PluginSettingsView>('settings.acp.set', { backend: item.id, enabled: (event.target as HTMLInputElement).checked }).then(view => { applyView(view); setAcpBackends((view.config.acp?.backends ?? []).map(v => ({ id: v.id, enabled: v.enabled !== false }))) }).catch(reason => failWith(reason))
         }))),
         addingAcp ? React.createElement('div', { className: 'dshRemoteAcpAddForm' },
           React.createElement('label', null, t('acpName'), React.createElement('input', { value: acpName, size: 16, placeholder: t('acpName'), 'aria-label': t('acpName'), onChange: (event: Event) => setAcpName((event.target as HTMLInputElement).value) })),
@@ -364,9 +449,9 @@ export function createRemotePluginOptions(React: ClientReact) {
                   React.createElement('span', null, t('deviceId')),
                   React.createElement('code', null, hostDeviceId || '—'))),
               React.createElement('div', { className: 'dshRemoteField' },
-                React.createElement('label', { htmlFor: 'dsh-remote-server-url-authorized' }, t('serverUrl')),
+                React.createElement('label', { htmlFor: fieldId('server-url-authorized') }, t('serverUrl')),
                 React.createElement('input', {
-                  id: 'dsh-remote-server-url-authorized',
+                  id: fieldId('server-url-authorized'),
                   type: 'url',
                   value: serverUrl,
                   disabled: true,
@@ -375,6 +460,8 @@ export function createRemotePluginOptions(React: ClientReact) {
                   onChange: (event: Event) => { setServerUrl((event.target as HTMLInputElement).value); setNotice(undefined) },
                 }),
                 React.createElement('p', null, t('serverUrlHint'))),
+              roleSetting,
+              hostLoginSetting,
               developmentSetting,
               acpSetting,
               React.createElement('div', { className: 'dshRemoteAuthorizationSetting' },
@@ -427,7 +514,7 @@ export function createRemotePluginOptions(React: ClientReact) {
                     disabled: busy || !writable,
                     onClick: () => void logout(),
                   }, t(busy ? 'signingOut' : 'signOut'))))
-            : React.createElement('form', { className: 'dshRemoteSettings', noValidate: true, onSubmit: (event: Event) => void save(event) },
+            : React.createElement('div', { className: 'dshRemoteSettings' },
               React.createElement('div', { className: 'dshRemoteHostIdentity' },
                 React.createElement('div', null,
                   React.createElement('span', null, t('hostName')),
@@ -436,9 +523,9 @@ export function createRemotePluginOptions(React: ClientReact) {
                   React.createElement('span', null, t('deviceId')),
                   React.createElement('code', null, hostDeviceId || '—'))),
               React.createElement('div', { className: 'dshRemoteField' },
-                React.createElement('label', { htmlFor: 'dsh-remote-server-url' }, t('serverUrl')),
+                React.createElement('label', { htmlFor: fieldId('server-url') }, t('serverUrl')),
                 React.createElement('input', {
-                  id: 'dsh-remote-server-url',
+                  id: fieldId('server-url'),
                   type: 'url',
                   value: serverUrl,
                   disabled: busy || !writable,
@@ -447,6 +534,8 @@ export function createRemotePluginOptions(React: ClientReact) {
                   onChange: (event: Event) => { setServerUrl((event.target as HTMLInputElement).value); setNotice(undefined) },
                 }),
                 React.createElement('p', null, t('serverUrlHint'))),
+              roleSetting,
+              hostLoginSetting,
               developmentSetting,
               acpSetting,
               React.createElement('p', { className: 'dshRemoteSettingsState' }, t('authorizeFromRemote')),
@@ -457,7 +546,7 @@ export function createRemotePluginOptions(React: ClientReact) {
                   role: error !== undefined ? 'alert' : 'status',
                 }, error ?? (notice === undefined ? '' : t(notice.key, notice.params))),
                 React.createElement('button', { type: 'button', className: 'dshRemoteDiscard', disabled: busy || !draftDirty, onClick: discard }, t('discard')),
-                React.createElement('button', { type: 'submit', className: 'dshRemoteSave', disabled: busy || !writable || !serverDirty }, t(busy ? 'saving' : 'save'))))))
+                React.createElement('button', { type: 'button', className: 'dshRemoteSave', disabled: busy || !writable || !serverDirty, onClick: () => void save() }, t(busy ? 'saving' : 'save'))))))
   }
 
   return RemotePluginOptions

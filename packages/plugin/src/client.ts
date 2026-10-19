@@ -6,6 +6,7 @@ import { connectedProgress, connectionErrorMessage, messageOf, remoteCodeOf } fr
 import { createRemoteProgressView, runConnectHostProgress } from './client/progress.js'
 import { createRemotePluginOptions } from './client/settings.js'
 import { createPeerTrustAction } from './client/peer-trust-action.js'
+import { createRemoteConfigAction } from './client/remote-config-action.js'
 import { installStyle, installTerminalAvailabilityNotice } from './client/shell.js'
 import type {
   ClientReact,
@@ -85,6 +86,7 @@ window.__ModuleLoader__.load({
     const module = { exports: {} as Record<string, unknown> }
     const React = require('react') as ClientReact
     const RemotePluginOptions = createRemotePluginOptions(React)
+    const RemoteConfigAction = createRemoteConfigAction(React, RemotePluginOptions)
     const PeerTrustAction = createPeerTrustAction(React)
     const RemoteWorkspaceAction = createRemoteWorkspaceAction(React)
     const RemoteProgressView = createRemoteProgressView(React)
@@ -499,6 +501,13 @@ window.__ModuleLoader__.load({
           preferredQrProvider: ctx.locale.getLocale().active === 'zh' ? 'zhihu' : 'github',
         }),
       }, RemoteWorkspaceAction))
+      ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
+        name: 'sidebar.footer.action',
+        id: 'ds-harness-remote-config',
+        order: -18,
+        locale: localeNamespace,
+        inject: () => ({ control, statusFeed, localTrustControl, signal: trustLifetime.signal, t }),
+      }, RemoteConfigAction))
       ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
         name: 'sidebar.footer.action',
         id: 'ds-harness-remote-trust',

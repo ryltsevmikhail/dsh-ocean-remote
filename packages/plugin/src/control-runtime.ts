@@ -302,7 +302,8 @@ export class PluginControlRuntime {
       this.host = runtimes.host
     }
     this.config = next
-    return { ...await this.settingsView(), ...(role !== currentRole && this.switchServer === undefined ? { applies: 'restart' as const } : {}) }
+    // A live runtime replacement applies immediately; otherwise the profile change needs a restart.
+    return { ...await this.settingsView(), applies: role !== currentRole && this.switchServer === undefined ? 'restart' : 'live' }
   }
 
   private async setDevelopment(payload: unknown): Promise<PluginSettingsView> {

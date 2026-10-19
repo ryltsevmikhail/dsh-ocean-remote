@@ -1668,6 +1668,20 @@ Minimum version required to store current data is: ` + bestVersion + `.
     cursorSaved: "Cursor ACP adapter setting saved. Restart DSH to apply it.",
     authorizeFromRemote: "Sign in from the Remote entry in the sidebar, then return here to manage this device.",
     authorizationMethod: "Authorization method",
+    role: "Role",
+    roleHost: "Host (this machine serves)",
+    roleClient: "Client (this machine connects)",
+    roleHint: "Changing the role replaces the Remote runtime for the selected Server; unsaved drafts are discarded.",
+    roleSaved: "Role applied.",
+    roleSavedRestart: "Role saved. Restart DSH to apply it.",
+    remoteConfigLabel: "Remote settings",
+    remoteConfigOpen: "Settings",
+    closeAction: "Close",
+    settingsOverridden: "These settings are fixed by a profile overlay or command-line patch. Edit that overlay (or the profile file) and restart DSH: saving here cannot override it.",
+    hostLoginTitle: "Sign in as Host",
+    hostLoginHint: "The account must belong to the configured Server. Registration by code is not available on this Server version.",
+    hostLoginSubmit: "Sign in as Host",
+    hostLoginOk: "Host signed in.",
     accountPassword: "Account password",
     registrationCode: "Device authorization code",
     registrationCodeHint: "Generate it after signing in on the Server website. Use it once to connect this device.",
@@ -1939,6 +1953,20 @@ Minimum version required to store current data is: ` + bestVersion + `.
     cursorSaved: "Cursor ACP adapter \u8BBE\u7F6E\u5DF2\u4FDD\u5B58\uFF0C\u91CD\u542F DSH \u540E\u751F\u6548\u3002",
     authorizeFromRemote: "\u8BF7\u4ECE\u4FA7\u680F Remote \u5165\u53E3\u767B\u5F55\uFF0C\u767B\u5F55\u540E\u53EF\u5728\u8FD9\u91CC\u7BA1\u7406\u5F53\u524D\u8BBE\u5907\u3002",
     authorizationMethod: "\u6388\u6743\u65B9\u5F0F",
+    role: "\u89D2\u8272",
+    roleHost: "Host\uFF08\u672C\u673A\u63D0\u4F9B\u670D\u52A1\uFF09",
+    roleClient: "Client\uFF08\u672C\u673A\u8FDE\u63A5\uFF09",
+    roleHint: "\u5207\u6362\u89D2\u8272\u4F1A\u66FF\u6362\u6240\u9009 Server \u7684 Remote \u8FD0\u884C\u65F6\uFF0C\u672A\u4FDD\u5B58\u7684\u8349\u7A3F\u4F1A\u88AB\u4E22\u5F03\u3002",
+    roleSaved: "\u89D2\u8272\u5DF2\u5E94\u7528\u3002",
+    roleSavedRestart: "\u89D2\u8272\u5DF2\u4FDD\u5B58\uFF0C\u91CD\u542F DSH \u540E\u751F\u6548\u3002",
+    remoteConfigLabel: "\u8FDC\u7A0B\u8BBE\u7F6E",
+    remoteConfigOpen: "\u8BBE\u7F6E",
+    closeAction: "\u5173\u95ED",
+    settingsOverridden: "\u8FD9\u4E9B\u8BBE\u7F6E\u88AB profile overlay \u6216\u547D\u4EE4\u884C patch \u56FA\u5B9A\u3002\u8BF7\u4FEE\u6539\u8BE5 overlay\uFF08\u6216 profile \u6587\u4EF6\uFF09\u5E76\u91CD\u542F DSH\uFF1A\u5728\u6B64\u4FDD\u5B58\u65E0\u6CD5\u8986\u76D6\u5B83\u3002",
+    hostLoginTitle: "\u4EE5 Host \u8EAB\u4EFD\u767B\u5F55",
+    hostLoginHint: "\u8D26\u53F7\u5FC5\u987B\u5C5E\u4E8E\u5DF2\u914D\u7F6E\u7684 Server\u3002\u5F53\u524D Server \u7248\u672C\u4E0D\u652F\u6301\u5339\u914D\u7801\u6CE8\u518C\u3002",
+    hostLoginSubmit: "\u4EE5 Host \u8EAB\u4EFD\u767B\u5F55",
+    hostLoginOk: "Host \u5DF2\u767B\u5F55\u3002",
     accountPassword: "\u8D26\u53F7\u5BC6\u7801",
     registrationCode: "\u8BBE\u5907\u6388\u6743\u7801",
     registrationCodeHint: "\u767B\u5F55 Server \u7F51\u9875\u540E\u751F\u6210\uFF0C\u7528\u4E00\u6B21\u5373\u53EF\u8FDE\u63A5\u8FD9\u53F0\u8BBE\u5907\u3002",
@@ -2694,10 +2722,11 @@ Minimum version required to store current data is: ` + bestVersion + `.
   function createRemotePluginOptions(React) {
     let PeerTrustPanel = createPeerTrustPanel(React);
     function RemotePluginOptions(props) {
-      let { t } = props, [open, setOpen] = React.useState(props.view === "page"), [serverUrl, setServerUrl] = React.useState(""), [portsBusy, setPortsBusy] = React.useState(!1), [previewPorts, setPreviewPorts] = React.useState(""), role = "host", [registrationCode, setRegistrationCode] = React.useState(""), [associations, setAssociations] = React.useState({}), [loaded, setLoaded] = React.useState(!1), [writable, setWritable] = React.useState(!1), [busy, setBusy] = React.useState(!1), [terminalEnabled, setTerminalEnabled] = React.useState(!1), [terminalBusy, setTerminalBusy] = React.useState(!1), [acpBackends, setAcpBackends] = React.useState([]), [acpAvailability, setAcpAvailability] = React.useState({}), [acpChecking, setAcpChecking] = React.useState({}), [acpCheckResults, setAcpCheckResults] = React.useState({}), [addingAcp, setAddingAcp] = React.useState(!1), [acpName, setAcpName] = React.useState(""), [acpCommand, setAcpCommand] = React.useState(""), [acpArguments, setAcpArguments] = React.useState("acp"), [reconnectBusy, setReconnectBusy] = React.useState(!1), [hostStatus, setHostStatus] = React.useState(void 0), [hostName, setHostName] = React.useState(""), [hostDeviceId, setHostDeviceId] = React.useState(""), [notice, setNotice] = React.useState(void 0), [error, setError] = React.useState(void 0), [settingsView, setSettingsView] = React.useState(void 0), associationReadRun = React.useRef(0), persistedServerUrl = settingsView?.config.serverUrl ?? "", association = associations.client ?? associations.host, serverDirty = settingsView !== void 0 && serverUrl !== persistedServerUrl, draftDirty = serverDirty, applyAssociations = (view) => {
-        setAssociations(view.associations ?? (view.association === void 0 ? {} : { host: view.association }));
+      let { t } = props, [open, setOpen] = React.useState(props.view === "page"), [serverUrl, setServerUrl] = React.useState(""), [portsBusy, setPortsBusy] = React.useState(!1), [previewPorts, setPreviewPorts] = React.useState(""), [roleValue, setRoleValue] = React.useState("host"), [roleBusy, setRoleBusy] = React.useState(!1), [hostEmail, setHostEmail] = React.useState(""), [hostPassword, setHostPassword] = React.useState(""), [hostLoginBusy, setHostLoginBusy] = React.useState(!1), [registrationCode, setRegistrationCode] = React.useState(""), [associations, setAssociations] = React.useState({}), [loaded, setLoaded] = React.useState(!1), [writable, setWritable] = React.useState(!1), [busy, setBusy] = React.useState(!1), [terminalEnabled, setTerminalEnabled] = React.useState(!1), [terminalBusy, setTerminalBusy] = React.useState(!1), [acpBackends, setAcpBackends] = React.useState([]), [acpAvailability, setAcpAvailability] = React.useState({}), [acpChecking, setAcpChecking] = React.useState({}), [acpCheckResults, setAcpCheckResults] = React.useState({}), [addingAcp, setAddingAcp] = React.useState(!1), [acpName, setAcpName] = React.useState(""), [acpCommand, setAcpCommand] = React.useState(""), [acpArguments, setAcpArguments] = React.useState("acp"), [reconnectBusy, setReconnectBusy] = React.useState(!1), [hostStatus, setHostStatus] = React.useState(void 0), [hostName, setHostName] = React.useState(""), [hostDeviceId, setHostDeviceId] = React.useState(""), [notice, setNotice] = React.useState(void 0), [error, setError] = React.useState(void 0), [settingsView, setSettingsView] = React.useState(void 0), associationReadRun = React.useRef(0), idSuffix = React.useRef(`-${Math.random().toString(36).slice(2, 8)}`).current, fieldId = (name) => `dsh-remote-${name}${idSuffix}`, persistedServerUrl = settingsView?.config.serverUrl ?? "", association = roleValue === "client" ? associations.client : associations.host, serverDirty = settingsView !== void 0 && serverUrl !== persistedServerUrl, draftDirty = serverDirty, applyAssociations = (view) => {
+        let currentRole = view.config.role === "client" ? "client" : "host";
+        setAssociations(view.associations ?? (view.association === void 0 ? {} : { [currentRole]: view.association }));
       }, applyView = (view, updateAssociations = !0) => {
-        setSettingsView(view), setServerUrl(view.config.serverUrl ?? ""), setTerminalEnabled(view.config.terminal?.enabled ?? !0), setPreviewPorts((view.config.loopback?.ports ?? []).join(", ")), setAcpBackends((view.config.acp?.backends ?? []).map((item) => ({ id: item.id, enabled: item.enabled !== !1 }))), setAcpAvailability(view.acpAvailability ?? {}), updateAssociations && applyAssociations(view), setWritable(view.writable), setLoaded(!0);
+        setSettingsView(view), setServerUrl(view.config.serverUrl ?? ""), setTerminalEnabled(view.config.terminal?.enabled ?? !1), setRoleValue(view.config.role === "client" ? "client" : "host"), setPreviewPorts((view.config.loopback?.ports ?? []).join(", ")), setAcpBackends((view.config.acp?.backends ?? []).map((item) => ({ id: item.id, enabled: item.enabled !== !1 }))), setAcpAvailability(view.acpAvailability ?? {}), updateAssociations && applyAssociations(view), setWritable(view.writable), setLoaded(!0);
       }, load = async () => {
         let run = ++associationReadRun.current, [view, status] = await Promise.all([
           props.control("settings.get"),
@@ -2707,7 +2736,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
         applyView(view, run === associationReadRun.current), setHostStatus(status?.host), setHostName(status?.deviceName ?? ""), setHostDeviceId(status?.host?.deviceId ?? "");
       };
       React.useEffect(() => {
-        load().catch((reason) => setError(messageOf(reason)));
+        load().catch((reason) => failWith(reason));
       }, []), React.useEffect(() => {
         let active = !0, authorizationKey, unsubscribe = props.statusFeed.subscribe((status) => {
           setHostStatus(status.host), setHostName(status.deviceName ?? ""), setHostDeviceId(status.host?.deviceId ?? "");
@@ -2730,7 +2759,10 @@ Minimum version required to store current data is: ` + bestVersion + `.
           active = !1, unsubscribe();
         };
       }, [props.statusFeed]);
-      let save = async (event) => {
+      let failWith = (reason) => {
+        let native = messageOf(reason);
+        setError(/overridden by a home patch or command-line overlay/i.test(native) ? `${t("settingsOverridden")} (${native})` : native);
+      }, save = async (event) => {
         if (event?.preventDefault(), !(!writable || !serverDirty)) {
           setBusy(!0), setNotice(void 0), setError(void 0);
           try {
@@ -2739,7 +2771,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
             });
             applyView(view), setNotice({ key: view.applies === "live" ? "serverApplied" : "serverSaved" });
           } catch (reason) {
-            setError(messageOf(reason));
+            failWith(reason);
           } finally {
             setBusy(!1);
           }
@@ -2751,7 +2783,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
           let view = await props.control("settings.logout");
           applyView(view, run === associationReadRun.current), setRegistrationCode(""), setNotice({ key: "signedOut" });
         } catch (reason) {
-          setError(messageOf(reason));
+          failWith(reason);
         } finally {
           setBusy(!1);
         }
@@ -2761,7 +2793,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
           let status = await props.control("host.reconnect");
           setHostStatus(status.host), setNotice({ key: "reconnectStarted" });
         } catch (reason) {
-          setError(messageOf(reason));
+          failWith(reason);
         } finally {
           setReconnectBusy(!1);
         }
@@ -2771,7 +2803,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
           let status = await props.control("host.authorization.set", { enabled });
           setHostStatus(status.host);
         } catch (reason) {
-          setError(messageOf(reason));
+          failWith(reason);
         } finally {
           setBusy(!1);
         }
@@ -2782,7 +2814,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
           let view = await props.control("settings.development.set", { terminalEnabled: enabled });
           applyView(view), setPreviewPorts(portsDraft), setNotice({ key: "terminalSaved" });
         } catch (reason) {
-          setTerminalEnabled(previous), setError(messageOf(reason));
+          setTerminalEnabled(previous), failWith(reason);
         } finally {
           setTerminalBusy(!1);
         }
@@ -2792,7 +2824,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
           let ports = previewPorts.trim() === "" ? [] : previewPorts.split(/[,，]/).map((value) => Number(value.trim())), view = await props.control("settings.development.set", { ports });
           applyView(view), setNotice({ key: "developmentSaved" });
         } catch (reason) {
-          setError(messageOf(reason));
+          failWith(reason);
         } finally {
           setPortsBusy(!1);
         }
@@ -2805,7 +2837,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
             let available = view.acpAvailability?.[backend] === !0;
             !available && view.writable && view.config.acp?.backends?.some((item) => item.id === backend && item.enabled !== !1) && applyView(await props.control("settings.acp.set", { backend, enabled: !1 })), setAcpCheckResults((current) => ({ ...current, [backend]: available })), setNotice({ key: available ? "acpAvailable" : "acpUnavailable" }), window.setTimeout(() => setAcpCheckResults((current) => ({ ...current, [backend]: void 0 })), 5e3);
           } catch (reason) {
-            setError(messageOf(reason));
+            failWith(reason);
           } finally {
             setAcpChecking((current) => ({ ...current, [backend]: !1 }));
           }
@@ -2820,7 +2852,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
           });
           applyView(view), setAddingAcp(!1), setAcpName(""), setAcpCommand(""), setAcpArguments("acp");
         } catch (reason) {
-          setError(messageOf(reason));
+          failWith(reason);
         } finally {
           setBusy(!1);
         }
@@ -2830,13 +2862,97 @@ Minimum version required to store current data is: ` + bestVersion + `.
           let view = await props.control("settings.acp.remove", { id: backend });
           applyView(view);
         } catch (reason) {
-          setError(messageOf(reason));
+          failWith(reason);
         } finally {
           setBusy(!1);
         }
+      }, changeRole = async (next) => {
+        if (next !== roleValue) {
+          setRoleBusy(!0), setError(void 0), setNotice(void 0), setHostPassword("");
+          try {
+            let view = await props.control("settings.role.set", { role: next });
+            applyView(view), setNotice({ key: view.applies === "restart" ? "roleSavedRestart" : "roleSaved" });
+          } catch (reason) {
+            failWith(reason);
+          } finally {
+            setRoleBusy(!1);
+          }
+        }
+      }, submitHostLogin = async (event) => {
+        event.preventDefault(), setHostLoginBusy(!0), setError(void 0), setNotice(void 0);
+        try {
+          await props.control("host.account.login", { email: hostEmail.trim(), password: hostPassword }), setNotice({ key: "hostLoginOk" }), applyView(await props.control("settings.get"));
+        } catch (reason) {
+          failWith(reason);
+        } finally {
+          setHostPassword(""), setHostLoginBusy(!1);
+        }
       }, discard = () => {
         settingsView !== void 0 && applyView(settingsView), setRegistrationCode(""), setNotice(void 0), setError(void 0);
-      }, developmentSetting = React.createElement(
+      }, roleSetting = React.createElement(
+        "div",
+        { className: "dshRemotePathField" },
+        React.createElement("label", { htmlFor: fieldId("role") }, t("role")),
+        React.createElement(
+          "select",
+          {
+            id: fieldId("role"),
+            value: roleValue,
+            disabled: busy || roleBusy || hostLoginBusy || !writable,
+            "aria-label": t("role"),
+            onChange: (event) => void changeRole(event.target.value === "client" ? "client" : "host")
+          },
+          React.createElement("option", { value: "host" }, t("roleHost")),
+          React.createElement("option", { value: "client" }, t("roleClient"))
+        ),
+        React.createElement("small", null, t("roleHint"))
+      ), hostLoginSetting = roleValue !== "host" ? null : React.createElement(
+        "section",
+        { className: "dshRemoteDevelopmentSettings" },
+        React.createElement(
+          "div",
+          { className: "dshRemoteSettingsTop" },
+          React.createElement(
+            "div",
+            null,
+            React.createElement("strong", null, t("hostLoginTitle")),
+            React.createElement("p", null, t("hostLoginHint"))
+          )
+        ),
+        React.createElement(
+          "form",
+          { className: "dshRemoteSettings", noValidate: !0, onSubmit: (event) => void submitHostLogin(event) },
+          React.createElement(
+            "div",
+            { className: "dshRemoteField" },
+            React.createElement("label", { htmlFor: fieldId("host-email") }, t("serverAccountEmail")),
+            React.createElement("input", {
+              id: fieldId("host-email"),
+              type: "email",
+              autoComplete: "username",
+              value: hostEmail,
+              disabled: busy || hostLoginBusy || !writable,
+              required: !0,
+              onChange: (event) => setHostEmail(event.target.value)
+            })
+          ),
+          React.createElement(
+            "div",
+            { className: "dshRemoteField" },
+            React.createElement("label", { htmlFor: fieldId("host-password") }, t("serverAccountPassword")),
+            React.createElement("input", {
+              id: fieldId("host-password"),
+              type: "password",
+              autoComplete: "current-password",
+              value: hostPassword,
+              disabled: busy || hostLoginBusy || !writable,
+              required: !0,
+              onChange: (event) => setHostPassword(event.target.value)
+            })
+          ),
+          React.createElement("button", { type: "submit", className: "dshRemoteSave", disabled: busy || roleBusy || hostLoginBusy || !writable || hostEmail.trim() === "" || hostPassword === "" }, t(hostLoginBusy ? "saving" : "hostLoginSubmit"))
+        )
+      ), developmentSetting = React.createElement(
         "section",
         { className: "dshRemoteDevelopmentSettings" },
         React.createElement(
@@ -2860,12 +2976,12 @@ Minimum version required to store current data is: ` + bestVersion + `.
         React.createElement(
           "div",
           { className: "dshRemotePathField" },
-          React.createElement("label", { htmlFor: "dsh-remote-preview-ports" }, t("previewPorts")),
+          React.createElement("label", { htmlFor: fieldId("preview-ports") }, t("previewPorts")),
           React.createElement(
             "div",
             { className: "dshRemotePortsRow" },
             React.createElement("input", {
-              id: "dsh-remote-preview-ports",
+              id: fieldId("preview-ports"),
               value: previewPorts,
               maxLength: 128,
               size: 24,
@@ -2929,7 +3045,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
               disabled: busy || !writable || acpChecking[item.id] === !0 || acpAvailability[item.id] !== !0,
               onChange: (event) => void props.control("settings.acp.set", { backend: item.id, enabled: event.target.checked }).then((view) => {
                 applyView(view), setAcpBackends((view.config.acp?.backends ?? []).map((v) => ({ id: v.id, enabled: v.enabled !== !1 })));
-              }).catch((reason) => setError(messageOf(reason)))
+              }).catch((reason) => failWith(reason))
             })
           )),
           addingAcp ? React.createElement(
@@ -3013,9 +3129,9 @@ Minimum version required to store current data is: ` + bestVersion + `.
             React.createElement(
               "div",
               { className: "dshRemoteField" },
-              React.createElement("label", { htmlFor: "dsh-remote-server-url-authorized" }, t("serverUrl")),
+              React.createElement("label", { htmlFor: fieldId("server-url-authorized") }, t("serverUrl")),
               React.createElement("input", {
-                id: "dsh-remote-server-url-authorized",
+                id: fieldId("server-url-authorized"),
                 type: "url",
                 value: serverUrl,
                 disabled: !0,
@@ -3027,6 +3143,8 @@ Minimum version required to store current data is: ` + bestVersion + `.
               }),
               React.createElement("p", null, t("serverUrlHint"))
             ),
+            roleSetting,
+            hostLoginSetting,
             developmentSetting,
             acpSetting,
             React.createElement(
@@ -3095,8 +3213,8 @@ Minimum version required to store current data is: ` + bestVersion + `.
               }, t(busy ? "signingOut" : "signOut"))
             )
           ) : React.createElement(
-            "form",
-            { className: "dshRemoteSettings", noValidate: !0, onSubmit: (event) => void save(event) },
+            "div",
+            { className: "dshRemoteSettings" },
             React.createElement(
               "div",
               { className: "dshRemoteHostIdentity" },
@@ -3116,9 +3234,9 @@ Minimum version required to store current data is: ` + bestVersion + `.
             React.createElement(
               "div",
               { className: "dshRemoteField" },
-              React.createElement("label", { htmlFor: "dsh-remote-server-url" }, t("serverUrl")),
+              React.createElement("label", { htmlFor: fieldId("server-url") }, t("serverUrl")),
               React.createElement("input", {
-                id: "dsh-remote-server-url",
+                id: fieldId("server-url"),
                 type: "url",
                 value: serverUrl,
                 disabled: busy || !writable,
@@ -3130,6 +3248,8 @@ Minimum version required to store current data is: ` + bestVersion + `.
               }),
               React.createElement("p", null, t("serverUrlHint"))
             ),
+            roleSetting,
+            hostLoginSetting,
             developmentSetting,
             acpSetting,
             React.createElement("p", { className: "dshRemoteSettingsState" }, t("authorizeFromRemote")),
@@ -3142,7 +3262,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
                 role: error !== void 0 ? "alert" : "status"
               }, error ?? (notice === void 0 ? "" : t(notice.key, notice.params))),
               React.createElement("button", { type: "button", className: "dshRemoteDiscard", disabled: busy || !draftDirty, onClick: discard }, t("discard")),
-              React.createElement("button", { type: "submit", className: "dshRemoteSave", disabled: busy || !writable || !serverDirty }, t(busy ? "saving" : "save"))
+              React.createElement("button", { type: "button", className: "dshRemoteSave", disabled: busy || !writable || !serverDirty, onClick: () => void save() }, t(busy ? "saving" : "save"))
             )
           ) : React.createElement("p", { className: "dshRemoteSettingsState" }, error ?? t("loadingSettings"))
         ) : null
@@ -3218,6 +3338,81 @@ Minimum version required to store current data is: ` + bestVersion + `.
               control: props.control,
               localTrustControl: props.localTrustControl,
               signal: props.signal
+            })
+          )
+        ) : null
+      );
+    };
+  }
+
+  // src/client/remote-config-action.ts
+  function createRemoteConfigAction(React, RemotePluginOptions) {
+    let h = React.createElement, labelKey = "remoteConfigLabel", Options = RemotePluginOptions;
+    return function(props) {
+      let [open, setOpen] = React.useState(!1), [scopeKey, setScopeKey] = React.useState(void 0), trigger = React.useRef(null), dialog = React.useRef(null), closeButton = React.useRef(null);
+      return React.useEffect(() => {
+        let previous = props.statusFeed.getSnapshot()?.serverUrl;
+        return props.statusFeed.subscribe((status) => {
+          typeof status.serverUrl == "string" && status.serverUrl !== previous && (previous = status.serverUrl, setScopeKey(status.serverUrl));
+        });
+      }, [props.statusFeed]), React.useEffect(() => {
+        if (!open) return;
+        let root = dialog.current;
+        if (!root) return;
+        let close = () => setOpen(!1), onKeyDown = (event) => {
+          if (event.key === "Escape")
+            event.preventDefault(), event.stopPropagation(), close();
+          else if (event.key === "Tab") {
+            let items = Array.from(root.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])')).filter((item) => item.tabIndex >= 0 && item.getClientRects().length > 0), first = items[0] ?? closeButton.current, last = items[items.length - 1] ?? first;
+            event.shiftKey && (document.activeElement === first || !root.contains(document.activeElement)) ? (event.preventDefault(), last?.focus()) : !event.shiftKey && (document.activeElement === last || !root.contains(document.activeElement)) && (event.preventDefault(), first?.focus());
+          }
+        }, onFocus = (event) => {
+          root.contains(event.target) || closeButton.current?.focus();
+        };
+        return closeButton.current?.focus(), document.addEventListener("keydown", onKeyDown, !0), document.addEventListener("focusin", onFocus, !0), props.signal?.addEventListener("abort", close, { once: !0 }), props.signal?.aborted && close(), () => {
+          document.removeEventListener("keydown", onKeyDown, !0), document.removeEventListener("focusin", onFocus, !0), props.signal?.removeEventListener("abort", close), trigger.current?.focus();
+        };
+      }, [open, props.signal]), h(
+        React.Fragment,
+        null,
+        h("style", null, ".dshRemoteConfigButton{min-width:36px;min-height:36px;padding:0 8px;font:inherit;font-size:12px}.dshRemoteConfigBackdrop{box-sizing:border-box;pointer-events:auto;-webkit-app-region:no-drag}.dshRemoteConfigDialog{box-sizing:border-box;width:min(760px,100%);max-height:calc(100dvh - 40px);overflow:auto;overscroll-behavior:contain}.dshRemoteConfigDialog .dshRemoteSettings{min-width:0}.dshRemoteConfigDialog :focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}"),
+        h("button", {
+          type: "button",
+          ref: trigger,
+          className: "dshRemoteModeButton dshRemoteConfigButton",
+          "aria-label": props.t(labelKey),
+          title: props.t(labelKey),
+          "aria-haspopup": "dialog",
+          "aria-expanded": open,
+          onClick: () => setOpen(!0)
+        }, props.t("remoteConfigOpen")),
+        open ? h(
+          "div",
+          { className: "dshRemoteBackdrop dshRemoteConfigBackdrop" },
+          h(
+            "section",
+            {
+              ref: dialog,
+              className: "dshRemoteDialog dshRemoteConfigDialog",
+              role: "dialog",
+              "aria-modal": !0,
+              "aria-label": props.t(labelKey)
+            },
+            h(
+              "div",
+              { className: "dshRemoteHeader" },
+              h("strong", null, props.t(labelKey)),
+              h("button", { type: "button", ref: closeButton, "aria-label": props.t("closeAction"), onClick: () => setOpen(!1) }, "\xD7")
+            ),
+            // Remounting on close/server change drops unsaved drafts instead of replaying them.
+            h(Options, {
+              key: scopeKey ?? "unknown-server",
+              control: props.control,
+              localTrustControl: props.localTrustControl,
+              signal: props.signal,
+              statusFeed: props.statusFeed,
+              t: props.t,
+              view: "page"
             })
           )
         ) : null
@@ -4798,7 +4993,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
   window.__ModuleLoader__.load({
     id: clientModuleId,
     factory: (require2) => {
-      let module = { exports: {} }, React = require2("react"), RemotePluginOptions = createRemotePluginOptions(React), PeerTrustAction = createPeerTrustAction(React), RemoteWorkspaceAction = createRemoteWorkspaceAction(React), RemoteProgressView = createRemoteProgressView(React), RemoteSessionHeaderAction = createRemoteSessionHeaderAction(React), inject = [
+      let module = { exports: {} }, React = require2("react"), RemotePluginOptions = createRemotePluginOptions(React), RemoteConfigAction = createRemoteConfigAction(React, RemotePluginOptions), PeerTrustAction = createPeerTrustAction(React), RemoteWorkspaceAction = createRemoteWorkspaceAction(React), RemoteProgressView = createRemoteProgressView(React), RemoteSessionHeaderAction = createRemoteSessionHeaderAction(React), inject = [
         "connection",
         "slots",
         "locale",
@@ -5067,6 +5262,12 @@ Minimum version required to store current data is: ` + bestVersion + `.
             preferredQrProvider: ctx.locale.getLocale().active === "zh" ? "zhihu" : "github"
           })
         }, RemoteWorkspaceAction)), ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({
+          name: "sidebar.footer.action",
+          id: "ds-harness-remote-config",
+          order: -18,
+          locale: localeNamespace,
+          inject: () => ({ control, statusFeed, localTrustControl, signal: trustLifetime.signal, t })
+        }, RemoteConfigAction)), ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({
           name: "sidebar.footer.action",
           id: "ds-harness-remote-trust",
           order: -19,
