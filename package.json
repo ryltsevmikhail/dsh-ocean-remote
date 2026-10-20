@@ -163,5 +163,8 @@
   },
   "optionalDependencies": {
     "@roamhq/wrtc": "0.10.0"
+  },
+  "scripts": {
+    "check:contrast": "node scripts/check-contrast.mjs"
   }
 }

@@ -87,6 +87,9 @@ jobs:
       - name: Check types
         run: pnpm -r check
 
+      - name: Check colour contrast
+        run: pnpm check:contrast
+
       - name: Verify GitHub plugin bundle
         run: |
           node scripts/verify-dsh-plugin.mjs
