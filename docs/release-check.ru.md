@@ -33,6 +33,7 @@ pnpm check:contrast
 | `pnpm -r test` | **834 теста** зелёные в 9 пакетах: crypto 7, protocol 78, browser 1, server 13, webrtc 44, client-core 41, vscode 7, android 149, plugin 494. Десятый участник `examples/mock-host` запускается с `--passWithNoTests` и тестов не содержит |
 | `pnpm -r check` | Успешно (типы во всех пакетах) |
 | `pnpm check:contrast` | 26 пар, обе темы |
+| `pnpm check:limits` | 20 входов/мин, 240 API-запросов/мин, вход занимает слот, `GET /healthz` не ограничен |
 | `pnpm check:mockups` | Требует Playwright и в чистом клоне не запускается: он падает с перечнем причин, а не пропускается молча |
 
 Прогон не обращается к внешним API и сервисам. Зависимости ставятся из lockfile через npm registry (как в CI), поэтому для установки нужен доступ к registry или тёплый pnpm store; сборка, тесты, проверка типов и контраст работают локально.

@@ -4,6 +4,7 @@
 // No external services, no real credentials.
 //
 // Usage: node scripts/check-rate-limits.mjs
+// Requires a built server: pnpm --filter './apps/server' build.
 
 import { spawn } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -37,10 +38,13 @@ async function withServer(run) {
     app.server.listen(${port}, '127.0.0.1', () => console.log('ready'))
     process.on('SIGTERM', () => { void app.close().then(() => process.exit(0)) })
   `], { stdio: ['ignore', 'pipe', 'pipe'] })
+  const stderr = []
+  child.stderr.on('data', chunk => stderr.push(String(chunk).slice(0, 400)))
   const stop = async () => {
     const exited = new Promise(resolve => child.once('exit', resolve))
     child.kill('SIGTERM')
-    const timer = setTimeout(() => { child.kill('SIGKILL'); resolve() }, 5_000)
+    // Escalate if the child ignores SIGTERM; the exit listener resolves the promise.
+    const timer = setTimeout(() => { child.kill('SIGKILL') }, 5_000)
     await exited
     clearTimeout(timer)
   }
@@ -48,7 +52,7 @@ async function withServer(run) {
     await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('server did not start')), 30_000)
       child.stdout.on('data', chunk => { if (String(chunk).includes('ready')) { clearTimeout(timer); resolve() } })
-      child.once('exit', code => reject(new Error(`server exited early (${code})`)))
+      child.once('exit', code => reject(new Error(`server exited early (${code})${stderr.length === 0 ? '' : `: ${stderr.join('').trim().slice(0, 300)}`}`)))
     })
     return await run(origin)
   } finally {
@@ -70,17 +74,19 @@ const API_BUDGET_AFTER_LOGIN = API_LIMIT - 1
 
 // 1. Login limit: the first LOGIN_LIMIT attempts pass the limiter (401), then 429.
 results.login = await withServer(async origin => {
+  const started = Date.now()
   const statuses = []
   for (let attempt = 0; attempt < LOGIN_LIMIT + 3; attempt += 1) {
     statuses.push((await post(origin, '/api/v1/auth/login', { email: ACCOUNT, password: 'wrong-password-000' })).status)
   }
   const firstLimited = statuses.indexOf(429)
   const healthAfter = await fetch(`${origin}/healthz`)
-  return { statuses, firstLimited, healthStaysOk: healthAfter.status === 200 }
+  return { statuses, firstLimited, healthStaysOk: healthAfter.status === 200, elapsedMs: Date.now() - started }
 })
 
 // 2. API limit: the login itself consumes one of the 240 slots, and health stays open.
 results.api = await withServer(async origin => {
+  const started = Date.now()
   const login = await post(origin, '/api/v1/auth/login', { email: ACCOUNT, password: PASSWORD })
   const cookie = (login.cookies ?? '').split(';')[0]
   let firstLimited = -1
@@ -91,7 +97,7 @@ results.api = await withServer(async origin => {
     if (response.status === 200) successCount += 1
   }
   const health = await fetch(`${origin}/healthz`)
-  return { firstLimited, successCount, healthStaysOk: health.status === 200 }
+  return { firstLimited, successCount, healthStaysOk: health.status === 200, elapsedMs: Date.now() - started }
 })
 
 const failures = []
@@ -103,6 +109,9 @@ if (results.api.firstLimited !== API_BUDGET_AFTER_LOGIN) failures.push(`API limi
 if (!results.api.healthStaysOk) failures.push('/healthz was rate limited during API load')
 
 results.api.budgetAfterLogin = API_BUDGET_AFTER_LOGIN
+// The limiter window is 60 s: if the loops ever approach it, counts reset and the
+// checks below fail loudly. Locally both loops take well under a second.
+results.windowSeconds = 60
 console.log(JSON.stringify(results, null, 2))
 if (failures.length > 0) {
   console.error(`\nRate limit failures:\n- ${failures.join('\n- ')}`)

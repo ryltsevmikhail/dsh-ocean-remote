@@ -61,10 +61,12 @@ const stopServer = async () => {
   stopped = true
   const exited = new Promise(resolve => server.once('exit', resolve))
   server.kill('SIGTERM')
-  const timer = setTimeout(() => { server.kill('SIGKILL'); resolve() }, 5_000)
+  // Escalate if the child ignores SIGTERM; the exit listener resolves the promise.
+  const timer = setTimeout(() => { server.kill('SIGKILL') }, 5_000)
   await exited
   clearTimeout(timer)
 }
+const serverStderr = []
 server = spawn(process.execPath, ['--input-type=module', '-e', `
   import { createRemoteServer } from ${JSON.stringify(pathToFileURL(serverPath).href)}
   const app = createRemoteServer({ account: ${JSON.stringify(ACCOUNT)}, password: ${JSON.stringify(PASSWORD)}, dataFile: ${JSON.stringify(stateFile)}, publicUrl: ${JSON.stringify(origin)} })
@@ -75,7 +77,8 @@ try {
   await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('server did not start')), 30_000)
     server.stdout.on('data', chunk => { if (String(chunk).includes('ready')) { clearTimeout(timer); resolve() } })
-    server.once('exit', code => reject(new Error(`server exited early (${code})`)))
+    server.stderr.on('data', chunk => serverStderr.push(String(chunk).slice(0, 400)))
+    server.once('exit', code => reject(new Error(`server exited early (${code})${serverStderr.length === 0 ? '' : `: ${serverStderr.join('').trim().slice(0, 300)}`}`)))
   })
 } catch (error) {
   // Nothing must survive a failed start: no child process, no temp directory.
