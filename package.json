@@ -165,6 +165,7 @@
     "@roamhq/wrtc": "0.10.0"
   },
   "scripts": {
-    "check:contrast": "node scripts/check-contrast.mjs"
+    "check:contrast": "node scripts/check-contrast.mjs",
+    "check:mockups": "node scripts/check-mockups.mjs"
   }
 }
