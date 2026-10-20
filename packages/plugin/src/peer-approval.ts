@@ -15,6 +15,8 @@ export interface PendingPeerApproval {
   role: 'host' | 'client'
   origin?: string
 }
+/** Informational only: no key material and never accepted as approval authority. */
+export type ExpiredPeerApproval = Pick<PendingPeerApproval, 'deviceId' | 'generation' | 'role' | 'epochId'>
 export interface PeerApprovalAction { deviceId: string; generation: string }
 export interface ApprovePeerAction extends PeerApprovalAction { fullFingerprint: string }
 export interface PeerApprovalStore {
@@ -43,6 +45,7 @@ const CAPACITY = 32
 export class PeerApprovalQueue {
   private readonly pending = new Map<string, Candidate>()
   private readonly tombstones = new Map<string, number>()
+  private readonly expired = new Map<string, ExpiredPeerApproval>()
   private readonly options: PeerApprovalQueueOptions
   private readonly instance = randomUUID()
   private lastNow = -Infinity
@@ -79,6 +82,7 @@ export class PeerApprovalQueue {
       epochId: this.options.epochId, role: this.options.role,
       ...(this.options.origin === undefined ? {} : { origin: this.options.origin }),
     }
+    this.expired.delete(peer.deviceId)
     this.pending.set(peer.deviceId, { input: peer, dto, busy: false, revisedAt: existing ? now : -Infinity })
     this.emit()
     return { ...dto }
@@ -88,6 +92,15 @@ export class PeerApprovalQueue {
     this.sweep()
     return this.snapshot()
   }
+
+  /** One clock sample keeps actionable requests and informational notices disjoint. */
+  status(): { pending: PendingPeerApproval[]; expired: ExpiredPeerApproval[] } {
+    this.sweep()
+    return { pending: this.snapshot(), expired: [...this.expired.values()].map(item => ({ ...item })) }
+  }
+
+  /** Bounded, epoch-local notices; these records cannot grant trust. */
+  listExpired(): ExpiredPeerApproval[] { return this.status().expired }
 
   /** Acceptance is synchronous; persistence is serialized. Close cannot undo dispatched IO. */
   approve(action: ApprovePeerAction): Promise<TrustedPeer> {
@@ -141,6 +154,7 @@ export class PeerApprovalQueue {
     await this.flight
     this.pending.clear()
     this.tombstones.clear()
+    this.expired.clear()
     this.emit()
   }
 
@@ -166,6 +180,9 @@ export class PeerApprovalQueue {
     for (const [id, candidate] of this.pending) {
       if (!candidate.busy && now >= candidate.dto.expiresAt) {
         this.pending.delete(id)
+        if (this.expired.size >= CAPACITY) this.expired.delete(this.expired.keys().next().value!)
+        const { deviceId, generation, role, epochId } = candidate.dto
+        this.expired.set(id, { deviceId, generation, role, epochId })
         this.tombstone(id, now)
         changed = true
       }

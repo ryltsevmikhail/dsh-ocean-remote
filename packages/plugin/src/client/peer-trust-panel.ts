@@ -148,7 +148,11 @@ export function createPeerTrustPanel(React: ClientReact) {
               h('button', { type: 'button', 'data-variant': 'primary', disabled: disabled || !draft.checked || !fullSha256.test(draft.fingerprint) || draft.fingerprint !== item.fullFingerprint, onClick: () => void mutate(role, item.deviceId, item.generation, item.fullFingerprint, validView!.epochId, true) }, 'Подтвердить ключ'),
               h('button', { type: 'button', disabled: busy || !writable, onClick: () => void mutate(role, item.deviceId, item.generation, item.fullFingerprint, validView!.epochId, false) }, 'Отклонить'))
           }),
-          h('h4', null, 'Сохранённые ключи'),
+          ...(validView?.expired ?? []).filter(item => item.role === role && item.epochId === validView?.epochId).map(item =>
+             h('p', { key: item.generation, className: 'dshRemoteNotice', role: 'status' },
+               'Запрос истёк — Device ID: ', h('code', { className: 'dshRemoteSha' }, item.deviceId),
+               '. Подтверждение недоступно. Повторите подключение на Client, затем обновите доверие и заново сверьте полный SHA-256.')),
+           h('h4', null, 'Сохранённые ключи'),
           showsNoSavedKeys(validView) ? h('p', null, TRUST_NO_SAVED_KEYS) : null,
           ...(validView?.trusted ?? []).map(pin => h('div', { key: pin.deviceId },
             h('p', null, pin.name, ' — Device ID: ', pin.deviceId, '; платформа: ', pin.platform),

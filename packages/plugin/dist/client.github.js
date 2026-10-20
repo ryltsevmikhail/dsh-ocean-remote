@@ -2808,6 +2808,13 @@ Minimum version required to store current data is: ` + bestVersion + `.
                 h("button", { type: "button", disabled: busy || !writable, onClick: () => void mutate(role, item.deviceId, item.generation, item.fullFingerprint, validView.epochId, !1) }, "\u041E\u0442\u043A\u043B\u043E\u043D\u0438\u0442\u044C")
               );
             }),
+            ...(validView?.expired ?? []).filter((item) => item.role === role && item.epochId === validView?.epochId).map((item) => h(
+              "p",
+              { key: item.generation, className: "dshRemoteNotice", role: "status" },
+              "\u0417\u0430\u043F\u0440\u043E\u0441 \u0438\u0441\u0442\u0451\u043A \u2014 Device ID: ",
+              h("code", { className: "dshRemoteSha" }, item.deviceId),
+              ". \u041F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u0435 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u043E. \u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u0435 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435 \u043D\u0430 Client, \u0437\u0430\u0442\u0435\u043C \u043E\u0431\u043D\u043E\u0432\u0438\u0442\u0435 \u0434\u043E\u0432\u0435\u0440\u0438\u0435 \u0438 \u0437\u0430\u043D\u043E\u0432\u043E \u0441\u0432\u0435\u0440\u044C\u0442\u0435 \u043F\u043E\u043B\u043D\u044B\u0439 SHA-256."
+            )),
             h("h4", null, "\u0421\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0435 \u043A\u043B\u044E\u0447\u0438"),
             showsNoSavedKeys(validView) ? h("p", null, TRUST_NO_SAVED_KEYS) : null,
             ...(validView?.trusted ?? []).map((pin) => h(

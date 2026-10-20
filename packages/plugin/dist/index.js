@@ -16927,6 +16927,7 @@ var PeerApprovalQueue = class {
   }
   pending = /* @__PURE__ */ new Map();
   tombstones = /* @__PURE__ */ new Map();
+  expired = /* @__PURE__ */ new Map();
   options;
   instance = randomUUID();
   lastNow = -Infinity;
@@ -16961,6 +16962,7 @@ var PeerApprovalQueue = class {
       role: this.options.role,
       ...this.options.origin === void 0 ? {} : { origin: this.options.origin }
     };
+    this.expired.delete(peer.deviceId);
     this.pending.set(peer.deviceId, { input: peer, dto, busy: false, revisedAt: existing ? now : -Infinity });
     this.emit();
     return { ...dto };
@@ -16968,6 +16970,15 @@ var PeerApprovalQueue = class {
   list() {
     this.sweep();
     return this.snapshot();
+  }
+  /** One clock sample keeps actionable requests and informational notices disjoint. */
+  status() {
+    this.sweep();
+    return { pending: this.snapshot(), expired: [...this.expired.values()].map((item) => ({ ...item })) };
+  }
+  /** Bounded, epoch-local notices; these records cannot grant trust. */
+  listExpired() {
+    return this.status().expired;
   }
   /** Acceptance is synchronous; persistence is serialized. Close cannot undo dispatched IO. */
   approve(action) {
@@ -17022,6 +17033,7 @@ var PeerApprovalQueue = class {
     await this.flight;
     this.pending.clear();
     this.tombstones.clear();
+    this.expired.clear();
     this.emit();
   }
   assertOpen() {
@@ -17046,6 +17058,9 @@ var PeerApprovalQueue = class {
     for (const [id5, candidate] of this.pending) {
       if (!candidate.busy && now >= candidate.dto.expiresAt) {
         this.pending.delete(id5);
+        if (this.expired.size >= CAPACITY) this.expired.delete(this.expired.keys().next().value);
+        const { deviceId, generation, role, epochId } = candidate.dto;
+        this.expired.set(id5, { deviceId, generation, role, epochId });
         this.tombstone(id5, now);
         changed = true;
       }
@@ -17089,12 +17104,14 @@ function validateInput(input3) {
 
 // src/peer-trust.ts
 function buildPeerTrustView(role, epochId, available, identity2, store, queue) {
+  const requests = available ? queue?.status() : void 0;
   return {
     role,
     epochId,
     available,
     ...identity2 === void 0 ? {} : { self: { deviceId: identity2.deviceId, fullFingerprint: fullFingerprint(identity2.publicKey) } },
-    pending: available ? queue?.list() ?? [] : [],
+    pending: requests?.pending ?? [],
+    expired: requests?.expired ?? [],
     trusted: identity2 === void 0 ? [] : store.listTrustedPeers().map((peer) => ({
       deviceId: peer.deviceId,
       name: peer.name,

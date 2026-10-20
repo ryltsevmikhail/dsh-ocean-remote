@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto'
 import { generateKeyPair } from '@dsh-remote/crypto'
 import { describe, expect, it, vi } from 'vitest'
 import type { TrustedPeer } from '../src/identity-store.js'
+import { buildPeerTrustView } from '../src/peer-trust.js'
+import type { IdentityStore } from '../src/identity-store.js'
 import { PeerApprovalQueue, type PeerApprovalInput, type PeerApprovalQueueOptions, type PeerApprovalStore } from '../src/peer-approval.js'
 
 function peer(deviceId = 'peer'): PeerApprovalInput {
@@ -51,6 +53,59 @@ describe('PeerApprovalQueue', () => {
     expect(() => f.queue.request(input)).toThrow('cooldown')
     f.advance(5_000)
     expect(f.queue.request(input)!.generation).not.toBe(first.generation)
+  })
+
+  it('keeps bounded expiry notices separate from authority and clears them on renewal/close', async () => {
+    const f = fixture()
+    const input = peer()
+    const first = f.queue.request(input)!
+    f.advance(300_000)
+    expect(f.queue.list()).toEqual([])
+    expect(f.queue.listExpired()).toEqual([{ deviceId: first.deviceId, generation: first.generation, role: 'host', epochId: 'owner-epoch' }])
+    f.queue.listExpired()[0]!.deviceId = 'mutated'
+    expect(f.queue.listExpired()[0]!.deviceId).toBe(first.deviceId)
+    await expect(f.queue.approve(first)).rejects.toThrow('stale')
+    expect(() => f.queue.reject(first)).toThrow('stale')
+    expect(f.trustPeer).not.toHaveBeenCalled()
+    f.advance(5_000)
+    const renewed = f.queue.request(input)!
+    expect(renewed.generation).not.toBe(first.generation)
+    expect(f.queue.listExpired()).toEqual([])
+    for (let batch = 0; batch < 3; batch++) {
+      for (let index = 0; index < 31; index++) f.queue.request({ ...input, deviceId: `${batch}:${index}` })
+      f.advance(300_000)
+      f.queue.list()
+    }
+    expect(f.queue.listExpired()).toHaveLength(32)
+    await f.queue.close()
+    expect(f.queue.listExpired()).toEqual([])
+  })
+
+  it('projects one atomic expiry snapshot and keeps expiry-only reads fail closed', () => {
+    let now = 0
+    let samples = 0
+    const f = fixture({ now: () => { samples++; return now++ } })
+    const pending = f.queue.request(peer())!
+    now = 299_999
+    samples = 0
+    const view = buildPeerTrustView('host', 'owner-epoch', true, undefined, f.store as IdentityStore, f.queue)
+    expect(samples).toBe(1)
+    expect(view.pending).toHaveLength(1)
+    expect(view.expired).toEqual([])
+    expect(f.queue.listExpired()).toHaveLength(1)
+    const input = peer('new')
+    const g = fixture()
+    const original = g.queue.request(input)!
+    g.advance(300_000)
+    expect(g.queue.listExpired()).toHaveLength(1)
+    g.advance(4_999)
+    expect(() => g.queue.request(input)).toThrow('cooldown')
+    g.advance(1)
+    expect(g.queue.request(input)!.generation).not.toBe(original.generation)
+    expect(g.queue.listExpired()).toEqual([])
+    const replacement = new PeerApprovalQueue(f.store, { epochId: 'new-epoch', role: 'host' })
+    expect(replacement.status()).toEqual({ pending: [], expired: [] })
+    expect(() => f.queue.reject(pending)).toThrow('stale')
   })
 
   it('rejects lowercase, short48, whitespace and stale generations without persistence', async () => {
@@ -149,6 +204,7 @@ describe('PeerApprovalQueue', () => {
     expect(createHash('sha256').update(Buffer.from(f.trustPeer.mock.calls[0]![0].publicKey, 'base64url')).digest('hex').toUpperCase()).toBe(first.fullFingerprint)
     f.advance(300_001)
     expect(f.queue.list()).toHaveLength(2)
+    expect(f.queue.listExpired()).toEqual([])
     gate.resolve()
     await Promise.all([firstApproval, secondApproval])
     expect(f.trustPeer).toHaveBeenCalledTimes(2)
