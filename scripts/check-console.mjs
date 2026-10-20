@@ -92,25 +92,62 @@ try {
   await page.getByRole('heading', { name: 'Ваши устройства', exact: true }).waitFor({ timeout: 20_000 })
   results.emptyStateShown = await page.getByText('Пока ни одного устройства', { exact: true }).isVisible()
 
-  await page.evaluate(async () => {
-    const bytes = new Uint8Array(32)
-    crypto.getRandomValues(bytes)
-    const identityKey = btoa(String.fromCharCode(...bytes)).replace(/\+/gu, '-').replace(/\//gu, '_').replace(/=+$/u, '')
-    const response = await fetch('/api/v1/devices/register', {
-      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ v: 1, device: { deviceId: crypto.randomUUID(), identityKey, name: 'console-check', role: 'host', platform: 'linux', clientVersion: '0.5.13' } }),
-    })
-    if (!response.ok) throw new Error(`register failed ${response.status}`)
+  const tokens = await page.evaluate(async () => {
+    const register = async name => {
+      const bytes = new Uint8Array(32)
+      crypto.getRandomValues(bytes)
+      const identityKey = btoa(String.fromCharCode(...bytes)).replace(/\+/gu, '-').replace(/\//gu, '_').replace(/=+$/u, '')
+      const deviceId = crypto.randomUUID()
+      const response = await fetch('/api/v1/devices/register', {
+        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ v: 1, device: { deviceId, identityKey, name, role: 'host', platform: 'linux', clientVersion: '0.5.13' } }),
+      })
+      if (!response.ok) throw new Error(`register failed ${response.status}`)
+      const body = await response.json()
+      return { deviceId, accessToken: body.accessToken, name }
+    }
+    return { online: await register('console-check-online'), offline: await register('console-check-offline') }
   })
   await page.getByRole('button', { name: 'Обновить', exact: true }).click()
-  await page.getByText('console-check', { exact: true }).waitFor({ timeout: 20_000 })
+  await page.getByText('console-check-online', { exact: true }).waitFor({ timeout: 20_000 })
   results.deviceListed = true
-  results.offlinePresence = (await page.locator('.device-status.online').count()) === 0
-  results.caption = await page.locator('table caption').innerText()
 
-  await page.getByRole('button', { name: /Отозвать устройство/u }).first().click()
+  // Presence is derived from an open control socket, so open one like a real plugin would.
+  const presence = await page.evaluate(async device => {
+    const socket = new WebSocket(`${location.origin.replace('http', 'ws')}/ws/v1/connect`)
+    const frame = { v: 1, id: crypto.randomUUID(), type: 'hello', timestamp: Date.now(), payload: {
+      role: 'host', deviceId: device.deviceId, accessToken: device.accessToken, protocols: [1],
+      capabilities: ['transport.relay'], clientVersion: '0.5.13',
+    } }
+    const ack = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('hello.ack timeout')), 10_000)
+      socket.addEventListener('message', event => {
+        const parsed = JSON.parse(String(event.data))
+        if (parsed.type === 'hello.ack') { clearTimeout(timer); resolve(parsed) }
+        if (parsed.type === 'error') { clearTimeout(timer); reject(new Error(String(parsed.payload?.code))) }
+      })
+      socket.addEventListener('error', () => { clearTimeout(timer); reject(new Error('socket error')) })
+      socket.addEventListener('open', () => socket.send(JSON.stringify(frame)))
+    })
+    globalThis.__consoleSocket = socket
+    return { ack: ack.type, ready: socket.readyState }
+  }, tokens.online)
+  results.helloAck = presence.ack === 'hello.ack'
+
+  await page.getByRole('button', { name: 'Обновить', exact: true }).click()
+  await page.waitForFunction(() => document.querySelectorAll('.device-status.online').length === 1, null, { timeout: 20_000 })
+  results.onlinePresence = true
+  results.caption = await page.locator('table caption').innerText()
+  results.onlineRowFirst = (await page.locator('table tbody tr').first().innerText()).includes('console-check-online')
+  results.offlineRowShown = (await page.locator('table tbody tr').count()) === 2
+
+  // Revoke the offline device first, then close the socket and revoke the online one.
+  await page.getByRole('button', { name: 'Отозвать устройство console-check-offline', exact: true }).click()
   // Wait for the table to become empty: the account e-mail contains the device name,
   // so a text match would never disappear.
+  await page.waitForFunction(() => document.querySelectorAll('table tbody tr').length === 1, null, { timeout: 20_000 })
+  await page.evaluate(() => { globalThis.__consoleSocket?.close(); return new Promise(resolve => setTimeout(resolve, 500)) })
+  await page.getByRole('button', { name: 'Отозвать устройство console-check-online', exact: true }).click()
   await page.waitForFunction(() => document.querySelectorAll('table tbody tr').length === 0, null, { timeout: 20_000 })
   results.revoked = (await page.evaluate(() => fetch('/api/v1/account/devices', { credentials: 'same-origin' }).then(r => r.json()))).items.length === 0
 
@@ -130,7 +167,10 @@ const failures = []
 if (results.wrongPasswordRejected !== true) failures.push('wrong password was not rejected on the login screen')
 if (results.emptyStateShown !== true) failures.push('empty device list was not explained')
 if (results.deviceListed !== true) failures.push('registered device did not appear')
-if (results.offlinePresence !== true) failures.push('a device without a WebSocket was shown online')
+if (results.helloAck !== true) failures.push('the control socket did not answer hello')
+if (results.onlinePresence !== true) failures.push('a device with an open control socket was not shown online')
+if (results.onlineRowFirst !== true) failures.push('online devices are not sorted first')
+if (results.offlineRowShown !== true) failures.push('the offline device disappeared from the list')
 if (results.revoked !== true) failures.push('revoked device stayed in the server list')
 if (results.logoutReturnedToLogin !== true) failures.push('logout did not return to the login screen')
 if (results.meAfterLogout !== 401) failures.push(`session survived logout (${results.meAfterLogout})`)
