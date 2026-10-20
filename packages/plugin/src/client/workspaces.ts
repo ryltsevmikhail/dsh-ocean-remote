@@ -1130,8 +1130,10 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
                         onChange: (event: Event) => void setCurrentDeviceControl((event.target as HTMLInputElement).checked),
                       })) : null,
                     connectedMenu)),
+                React.createElement('p', { className: 'dshRemoteSectionLabel' }, t('availableHosts')),
                 React.createElement('div', {
                   className: `dshRemoteHostList${connectingHost === undefined ? '' : ' isCollapsed'}`,
+                  'aria-label': t('availableHosts'),
                   'aria-busy': connectingHost === undefined ? undefined : true,
                 }, listedHosts.length === 0
                   ? React.createElement('p', null, busy ? t('checkingConnection') : t('noRemoteHosts'))
