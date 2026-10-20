@@ -20,7 +20,7 @@
   .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);width:620px;overflow:hidden}
   .card__head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
   .card__title{margin:0;font-weight:600;font-size:16px}
-  .card__close{background:transparent;border:0;color:var(--muted);font-size:18px;cursor:pointer;border-radius:6px}
+  .card__close{display:inline-flex;align-items:center;justify-content:center;min-width:32px;min-height:32px;background:transparent;border:0;color:var(--muted);font-size:18px;cursor:pointer;border-radius:6px}
   .card__body{padding:20px;display:flex;flex-direction:column;gap:var(--gap)}
   .layers{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin:0}
   .layer{display:inline-flex;align-items:center;gap:6px}
@@ -49,7 +49,7 @@
   .field input{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--ink);padding:9px 10px;font:inherit;width:100%}
   .field input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .hint{font-size:12.5px;color:var(--muted);margin:0}
-  .check{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--muted)}
+  .check{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--muted);min-height:32px;padding:4px 0;cursor:pointer}
   .pin{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;flex-wrap:wrap}
   .pin + .pin{border-top:1px solid var(--border)}
   .footer{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 20px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);flex-wrap:wrap}

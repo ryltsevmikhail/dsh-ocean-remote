@@ -23,6 +23,8 @@ const VIEWPORTS = [
   { name: 'narrow', width: 360, height: 900, scale: 2 },
   { name: 'tablet', width: 768, height: 1024, scale: 1 },
   { name: 'desktop', width: 1440, height: 900, scale: 1 },
+  // 200% zoom of a 1440 px screen is roughly 720 CSS px of usable width (UX-09).
+  { name: 'zoom200', width: 720, height: 900, scale: 1 },
 ]
 
 async function loadPlaywright() {
@@ -89,6 +91,8 @@ try {
       const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: viewport.scale })
       try {
         const page = await context.newPage()
+        // Reduced motion must be honoured: no decorative animation may survive it.
+        await page.emulateMedia({ reducedMotion: 'reduce' })
         await page.goto(url, { waitUntil: 'load' })
         const report = await page.evaluate(() => {
           const doc = document.documentElement
@@ -134,6 +138,19 @@ try {
             unnamed,
             focusIssues,
             headings: [...document.querySelectorAll('h1, h2, h3')].map(node => node.tagName),
+            animated: [...document.querySelectorAll('body *')]
+              .filter(node => {
+                const style = getComputedStyle(node)
+                const duration = Number.parseFloat(style.animationDuration) || 0
+                return style.animationName !== 'none' && duration > 0
+              })
+              .map(node => node.outerHTML.slice(0, 60)),
+            smallTargets: [...document.querySelectorAll('button, a[href], input, select, [role="switch"]')]
+              .filter(node => node.disabled !== true)
+              // A checkbox inside its label is tapped through the label.
+              .map(node => ({ html: node.outerHTML.slice(0, 60), ...node.closest('label')?.getBoundingClientRect().toJSON() ?? node.getBoundingClientRect().toJSON() }))
+              .filter(rect => rect.height > 0 && rect.height < 32)
+              .map(rect => `${rect.html} (${Math.round(rect.height)}px)`),
           }
         })
         const where = `${file} @${viewport.name}`
@@ -146,11 +163,13 @@ try {
         if (report.unnamed.length > 0) failures.push(`${where}: controls without an accessible name: ${report.unnamed.join(' | ')}`)
         if (report.focusIssues.length > 0) failures.push(`${where}: controls without a visible focus indicator: ${report.focusIssues.join(' | ')}`)
         if (!report.headings.includes('H2')) failures.push(`${where}: no section heading (h2) for navigation`)
+        if (report.animated.length > 0) failures.push(`${where}: animation survives reduced motion: ${report.animated.join(' | ')}`)
+        if (report.smallTargets.length > 0) failures.push(`${where}: tap targets under 32px: ${report.smallTargets.join(' | ')}`)
         if (writeShots) {
           await writeFile(new URL(`${file.replace(/\.html$/u, '')}-${viewport.name}.png`, mockups),
             await page.screenshot({ fullPage: true }))
         }
-        console.log(`ok   ${where.padEnd(42)} ${report.scrollWidth}/${report.clientWidth} px, ${report.sha.length} SHA, ${report.focusIssues.length} focus issues`)
+        console.log(`ok   ${where.padEnd(42)} ${report.scrollWidth}/${report.clientWidth} px, ${report.sha.length} SHA, ${report.focusIssues.length} focus issues, ${report.smallTargets.length} small targets`)
       } finally {
         await context.close()
       }

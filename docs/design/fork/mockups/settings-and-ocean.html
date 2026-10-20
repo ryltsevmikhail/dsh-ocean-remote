@@ -20,7 +20,7 @@
   .card--wide{width:700px}
   .card__head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);gap:12px}
   .card__title{margin:0;font-weight:600;font-size:16px}
-  .card__close{background:transparent;border:0;color:var(--muted);font-size:18px;cursor:pointer;border-radius:6px}
+  .card__close{display:inline-flex;align-items:center;justify-content:center;min-width:32px;min-height:32px;background:transparent;border:0;color:var(--muted);font-size:18px;cursor:pointer;border-radius:6px}
   .card__close:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .card__body{padding:20px;display:flex;flex-direction:column;gap:var(--gap)}
   .section-title{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0}
@@ -37,10 +37,10 @@
   .btn--danger{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 50%,transparent)}
   .btn[disabled]{opacity:.45;cursor:not-allowed}
   .switch-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2)}
-  .switch{width:40px;height:22px;border-radius:999px;background:var(--border);position:relative;flex:0 0 auto}
-  .switch::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--muted)}
+  .switch{width:44px;min-height:32px;border-radius:999px;background:var(--border);position:relative;flex:0 0 auto;border:0;cursor:pointer}
+  .switch::after{content:"";position:absolute;top:50%;left:4px;transform:translateY(-50%);width:16px;height:16px;border-radius:50%;background:var(--muted)}
   .switch--on{background:color-mix(in srgb,var(--accent) 55%,transparent)}
-  .switch--on::after{left:21px;background:#fff}
+  .switch--on::after{left:24px;background:#fff}
   .notice{border:1px solid var(--border);border-left:3px solid var(--warning);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--muted);background:var(--surface-2)}
   .notice strong{display:block;color:var(--ink);margin-bottom:2px}
   .meta{display:grid;grid-template-columns:max-content 1fr;gap:6px 16px;font-size:13px;color:var(--muted);margin:0}
@@ -85,7 +85,7 @@
           <div class="host__name">Разрешить управление этим устройством</div>
           <p class="hint">Host сможет выполнять инструменты с правами этого профиля.</p>
         </div>
-        <span class="switch switch--on" role="switch" aria-checked="true" aria-label="Разрешить управление этим устройством"></span>
+        <button type="button" class="switch switch--on" role="switch" aria-checked="true" aria-label="Разрешить управление этим устройством"></button>
       </div>
 
       <h3 class="section-title">Подключение</h3>
@@ -98,7 +98,7 @@
       <h3 class="section-title">Не входит в поддержку релиза</h3>
       <div class="switch-row">
         <div><div class="host__name">Удалённый терминал</div><p class="hint">Выключен по умолчанию. Включается переключателем здесь или в конфигурации профиля; не входит в поддержку релиза.</p></div>
-        <span class="switch" role="switch" aria-checked="false" aria-label="Удалённый терминал"></span>
+        <button type="button" class="switch" role="switch" aria-checked="false" aria-label="Удалённый терминал"></button>
       </div>
 
       <h3 class="section-title">Предпросмотр портов</h3>
