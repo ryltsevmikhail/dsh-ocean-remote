@@ -114,6 +114,11 @@ tbody th { font-weight: 600; }
   .error { color: var(--danger); background: var(--error-wash); border-color: var(--error-border); }
 }
 
+/* Motion is decorative: honour the system preference. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+}
+
 /* Shared control states (design step 2): inputs, focus, busy and danger actions. */
 form input, form select, form textarea { box-sizing: border-box; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; }
 form input:hover:not(:disabled):not(:focus), form select:hover:not(:disabled):not(:focus), form textarea:hover:not(:disabled):not(:focus) { border-color: var(--ink); }
