@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CodexWorkspaceBridge, CodexWorkspaceState, subprocessTerminalSpawner, type RemoteTerminalProcess, type RemoteTerminalSpawner } from '../src/codex-workspace-bridge.js'
-import { openVerifiedFile } from '../src/workspace-bridge.js'
+import { VerifiedOpenError, openVerifiedFile } from '../src/workspace-bridge.js'
 
 const signal = new AbortController().signal
 const states: CodexWorkspaceState[] = []
@@ -159,12 +159,18 @@ describe('CodeX workspace and terminal bridge', () => {
       expect(buf.subarray(0, read.bytesRead).toString()).toBe('inside')
       // A different inode (the file was swapped) is refused instead of read.
       await expect(openVerifiedFile(inside, { dev: info.dev, ino: info.ino + 1 }))
-        .rejects.toMatchObject({ code: 'WORKSPACE_CHANGED' })
+        .rejects.toMatchObject({ kind: 'changed' })
       // A symlink at the checked path is refused by O_NOFOLLOW.
       await rm(inside)
       await symlink(outside, inside)
       await expect(openVerifiedFile(inside, { dev: info.dev, ino: info.ino }))
-        .rejects.toMatchObject({ code: 'WORKSPACE_PATH_DENIED' })
+        .rejects.toMatchObject({ kind: 'symlink' })
+      await expect(openVerifiedFile(inside, { dev: info.dev, ino: info.ino })).rejects.toBeInstanceOf(VerifiedOpenError)
+      // Other open failures keep their own meaning instead of posing as a symlink.
+      const missing = await openVerifiedFile(join(root, 'absent.txt'), { dev: info.dev, ino: info.ino })
+        .then(() => undefined, (reason: unknown) => reason as { code?: string })
+      expect(missing).not.toBeInstanceOf(VerifiedOpenError)
+      expect(missing?.code).toBe('ENOENT')
     } finally {
       await rm(base, { recursive: true, force: true })
     }

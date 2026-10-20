@@ -34693,7 +34693,18 @@ var WorkspaceBridge = class {
       if (info.size > MAX_READ_BYTES) throw this.scopeError("WORKSPACE_TOO_LARGE", "The requested workspace file is too large.");
       const offset = readOffset(args);
       const limit = readLimit(args);
-      const file = await openVerifiedFile(target2, info);
+      let file;
+      try {
+        file = await openVerifiedFile(target2, info);
+      } catch (error) {
+        if (error instanceof VerifiedOpenError) {
+          throw this.scopeError(
+            error.kind === "symlink" ? "WORKSPACE_PATH_DENIED" : "WORKSPACE_CHANGED",
+            error.kind === "symlink" ? "The requested workspace path is a symbolic link." : "The workspace file changed while reading it. Retry the request."
+          );
+        }
+        throw error;
+      }
       let bytes;
       try {
         const buffer = Buffer.allocUnsafe(info.size + 1);
@@ -34788,18 +34799,23 @@ var WorkspaceBridge = class {
     }
   }
 };
+var VerifiedOpenError = class extends Error {
+  constructor(kind) {
+    super(kind === "symlink" ? "the workspace path became a symlink" : "the workspace file changed while reading it");
+    this.kind = kind;
+  }
+};
 async function openVerifiedFile(path, expected) {
   let file;
   try {
     file = await open2(path, constants3.O_RDONLY | constants3.O_NOFOLLOW);
   } catch (error) {
-    throw Object.assign(new RpcError("WORKSPACE_PATH_DENIED", "The requested workspace path is a symbolic link."), { cause: error });
+    if (error?.code === "ELOOP") throw new VerifiedOpenError("symlink");
+    throw error;
   }
   try {
     const info = await file.stat();
-    if (info.dev !== expected.dev || info.ino !== expected.ino) {
-      throw new RpcError("WORKSPACE_CHANGED", "The workspace file changed while reading it. Retry the request.");
-    }
+    if (info.dev !== expected.dev || info.ino !== expected.ino) throw new VerifiedOpenError("changed");
     return file;
   } catch (error) {
     await file.close().catch(() => void 0);

@@ -121,7 +121,17 @@ export class WorkspaceBridge {
       const limit = readLimit(args)
       // O_NOFOLLOW + inode check close the window between the canonical check and
       // the read: swapping the file for a symlink now fails instead of leaking a file.
-      const file = await openVerifiedFile(target, info)
+      let file
+      try {
+        file = await openVerifiedFile(target, info)
+      } catch (error) {
+        // Namespaced codes stay with the bridge so CodeX and ACP clients agree.
+        if (error instanceof VerifiedOpenError) {
+          throw this.scopeError(error.kind === 'symlink' ? 'WORKSPACE_PATH_DENIED' : 'WORKSPACE_CHANGED',
+            error.kind === 'symlink' ? 'The requested workspace path is a symbolic link.' : 'The workspace file changed while reading it. Retry the request.')
+        }
+        throw error
+      }
       let bytes: Buffer
       try {
         // Bound allocation even if the file grows after stat. One extra byte
@@ -215,19 +225,22 @@ export class WorkspaceBridge {
  * Opens a file that was just canonicalised and verified, refusing a last-moment
  * symlink swap (O_NOFOLLOW) and a different inode than the one that was checked.
  */
+export class VerifiedOpenError extends Error {
+  constructor(readonly kind: 'symlink' | 'changed') { super(kind === 'symlink' ? 'the workspace path became a symlink' : 'the workspace file changed while reading it') }
+}
+
 export async function openVerifiedFile(path: string, expected: { dev: number; ino: number }) {
   let file
   try {
     file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW)
   } catch (error) {
-    // ELOOP: the path became a symlink after the canonical check.
-    throw Object.assign(new RpcError('WORKSPACE_PATH_DENIED', 'The requested workspace path is a symbolic link.'), { cause: error })
+    // ELOOP only: a missing or unreadable file keeps its own (transport-level) meaning.
+    if ((error as { code?: unknown } | undefined)?.code === 'ELOOP') throw new VerifiedOpenError('symlink')
+    throw error
   }
   try {
     const info = await file.stat()
-    if (info.dev !== expected.dev || info.ino !== expected.ino) {
-      throw new RpcError('WORKSPACE_CHANGED', 'The workspace file changed while reading it. Retry the request.')
-    }
+    if (info.dev !== expected.dev || info.ino !== expected.ino) throw new VerifiedOpenError('changed')
     return file
   } catch (error) {
     await file.close().catch(() => undefined)
