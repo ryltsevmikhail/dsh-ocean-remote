@@ -56,11 +56,11 @@
       </p>
       <div class="alert" role="alert">
         <strong>Не удалось подключиться к ocean-stage5-host</strong>
-        Сервер не ответил за 15 секунд. Проверьте, что Host включён и сервер доступен.
+        Сервер не ответил вовремя. Проверьте, что Host включён и сервер доступен.
         <span class="code">Код для поддержки: CONNECTION_FAILED</span>
       </div>
       <div class="row">
-        <button class="btn btn--primary">Повторить подключение</button>
+        <button class="btn btn--primary">Подключиться снова</button>
         <button class="btn">Выбрать другой Host</button>
       </div>
     </div>
@@ -80,7 +80,7 @@
         <span class="row" style="justify-content:center;margin-top:10px"><button class="btn">Обновить</button></span>
       </div>
     </div>
-    <footer class="footer">Список обновляется сам при подключении устройства</footer>
+    <footer class="footer">Обновляется кнопкой «Обновить»; сам список не опрашивает сервер</footer>
   </section>
 
   <section class="card" aria-labelledby="expired-title">
@@ -89,12 +89,12 @@
       <button class="card__close" aria-label="Закрыть панель доверия">×</button>
     </header>
     <div class="card__body">
-      <div class="notice">
+      <div class="notice" role="status">
         <strong>Запрос на подтверждение истёк</strong>
         Подтверждение действует 5 минут после запроса. Запросите подключение заново и сверьте ключ.
         <span class="row" style="margin-top:8px"><button class="btn">Подключиться снова</button><button class="btn">Обновить</button></span>
       </div>
-      <p class="hint">Истёкший запрос не подтверждается задним числом: старые ID, generation и SHA больше не принимаются.</p>
+      <p class="hint">Истёкший запрос не подтверждается задним числом: старые generation и идентификатор запроса больше не принимаются. Сам ключ устройства от времени не протухает — сверять заново нужно только новый запрос.</p>
       <div class="pin">
         <div>
           <div class="name">ocean-stage5-host</div>
@@ -113,17 +113,23 @@
     </header>
     <div class="card__body">
       <div class="alert" role="alert">
-        <strong>Ключ Host изменился</strong>
-        Это может быть переустановка, а может быть подмена. Снимите доверие только если уверены,
-        затем сверьте новый SHA-256 по независимому каналу.
+        <strong>Известный ключ изменился — подтверждение запрещено</strong>
+        Это может быть переустановка, а может быть подмена. Пока сохранён старый ключ, новый запрос
+        не создаётся: подтверждать здесь нечего.
       </div>
-      <p class="hint">Сохранённый ключ (будет удалён при снятии доверия):</p>
+      <p class="hint">Сохранённый ключ:</p>
       <p class="sha">786A6E51418026AE68FA786BB6323D4228C217B4107352D98B577098CB36BCAC</p>
+      <ol class="hint" style="margin:0;padding-left:18px">
+        <li>Убедитесь по независимому каналу, что устройство действительно переустановлено.</li>
+        <li>Снимите доверие к этому устройству.</li>
+        <li>Подключитесь снова — появится обычный запрос на подтверждение.</li>
+        <li>Сверьте <b>новый</b> полный SHA-256 и подтвердите его: 64 символа и отметка о сверке.</li>
+      </ol>
       <div class="row">
-        <button class="btn btn--danger">Снять доверие и подтвердить заново</button>
+        <button class="btn btn--danger">Снять доверие</button>
         <button class="btn">Оставить как есть</button>
       </div>
-      <p class="hint">Автоматической перезаписи нет: новый ключ принимается только явным подтверждением.</p>
+      <p class="hint">Автоматической перезаписи нет: новый ключ принимается только явным подтверждением после повторного подключения.</p>
     </div>
     <footer class="footer">Никакого «всё в порядке»: конфликт виден до подтверждения</footer>
   </section>
