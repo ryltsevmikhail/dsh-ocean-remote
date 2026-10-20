@@ -49,7 +49,7 @@
 
 ## Границы
 
-- Ширина 640 px — viewport, **не** настоящий browser zoom 200 %.
+- Ширина 640 px в этом прогоне — viewport, **не** настоящий browser zoom 200 %. Настоящий zoom позже проверен [отдельным browser API прогоном](07-zoom-acceptance.ru.md).
 - Screen-reader walkthrough не выполнялся.
 - Реальные TTL expiry, legacy/changed-key/revoke и активная сессия не входят в этот прогон.
 - Модельные сценарии и двухмашинные обрыв/отзыв по-прежнему требуют пользовательских gates.

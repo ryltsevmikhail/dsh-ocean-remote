@@ -26,6 +26,6 @@ Approve изначально отключён; checkbox + точный полн�
 ## Что ещё не принято
 
 - В этом синтетическом прогоне не проверялась настоящая оболочка DSH. Её отдельный результат, включая focus trap/return, описан в [native smoke](06-native-panel-check.ru.md).
-- Настоящий browser zoom 200 %, screen-reader walkthrough.
+- Этот прогон не проверял настоящий browser zoom; позднее он проверен [отдельно при 200 %](07-zoom-acceptance.ru.md). Screen-reader walkthrough не выполнен.
 - Все loading/error/legacy/changed-key/revoke состояния на живой паре.
 - Реальная сессия модели и двухмашинные обрыв/отзыв — прежние пользовательские gates.
