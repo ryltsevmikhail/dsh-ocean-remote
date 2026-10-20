@@ -155,7 +155,7 @@ export function createPeerTrustPanel(React: ClientReact) {
            h('h4', null, 'Сохранённые ключи'),
           showsNoSavedKeys(validView) ? h('p', null, TRUST_NO_SAVED_KEYS) : null,
           ...(validView?.trusted ?? []).map(pin => h('div', { key: pin.deviceId },
-            h('p', null, pin.name, ' — Device ID: ', pin.deviceId, '; платформа: ', pin.platform),
+            h('p', null, pin.name, ' — Device ID: ', h('code', { className: 'dshRemoteSha' }, pin.deviceId), '; платформа: ', pin.platform),
             h('code', { className: 'dshRemoteSha' }, pin.fullFingerprint),
             h('p', null, pin.provenance === 'manual' ? 'Подтверждён вручную.' : 'Legacy: происхождение подтверждения неизвестно; не считается ручным подтверждением.'),
             h('button', {

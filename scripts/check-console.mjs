@@ -101,6 +101,15 @@ try {
   page.on('dialog', dialog => void dialog.accept())
 
   await page.goto(`${origin}/app/login`, { waitUntil: 'networkidle', timeout: 20_000 })
+  // Exercise the actual animated input, not transition-free dashboard buttons.
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  results.motionBaseline = await page.getByLabel('Аккаунт', { exact: true }).evaluate(input =>
+    Math.max(...getComputedStyle(input).transitionDuration.split(',').map(value => parseFloat(value))))
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  results.motionReduced = await page.getByLabel('Аккаунт', { exact: true }).evaluate(input =>
+    Math.max(...getComputedStyle(input).transitionDuration.split(',').map(value => parseFloat(value))))
+  results.reducedMotion = results.motionBaseline > 0.01 && results.motionReduced <= 0.01
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
   await page.getByLabel('Аккаунт', { exact: true }).fill(ACCOUNT)
   await page.getByLabel('Пароль', { exact: true }).fill('wrong-password-000')
   await page.getByRole('button', { name: 'Войти', exact: true }).click()
@@ -186,13 +195,37 @@ try {
   results.revokeLabelNamesDevice = a11y.revokeLabel.includes('console-check-online')
   results.tableColumns = a11y.tableColumns
 
-  await page.keyboard.press('Tab')
-  results.firstTabFocusVisible = await page.evaluate(() => getComputedStyle(document.activeElement).outlineStyle !== 'none')
+  // Wait for this refresh's response before checking enabled controls: otherwise
+  // the predicate could pass before React starts the request and disables them.
+  await Promise.all([
+    page.waitForResponse(response => response.url() === `${origin}/api/v1/account/devices` && response.request().method() === 'GET'),
+    page.getByRole('button', { name: 'Обновить', exact: true }).click(),
+  ])
+  results.keyboardFocus = []
+  await page.getByRole('button', { name: 'Выйти', exact: true }).waitFor({ state: 'visible' })
+  await page.waitForFunction(() => ![...document.querySelectorAll('button')].find(button => button.textContent === 'Обновить')?.disabled)
+  // Refresh temporarily disables itself while loading; reset focus after it settles.
+  await page.getByRole('button', { name: 'Обновить', exact: true }).focus()
+  for (const name of ['Выйти', 'Список устройств', 'Отозвать устройство console-check-online', 'Отозвать устройство console-check-offline']) {
+    await page.keyboard.press('Tab')
+    results.keyboardFocus.push(await page.evaluate(expected => {
+      const element = document.activeElement
+      const style = getComputedStyle(element)
+      const rect = element.getBoundingClientRect()
+      return {
+        name: element.getAttribute('aria-label') ?? element.textContent?.trim(),
+        expected,
+        visible: element.matches('button:focus-visible, [role="region"]:focus-visible') && (element.getAttribute('aria-label') ?? element.textContent?.trim()) === expected
+          && style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) >= 2
+          && rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight,
+      }
+    }, name))
+  }
 
   await page.setViewportSize({ width: 360, height: 720 })
   results.noHorizontalOverflow360 = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)
   await page.setViewportSize({ width: 640, height: 450 })
-  results.noHorizontalOverflowZoom200 = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)
+  results.noHorizontalOverflow640 = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)
   await page.setViewportSize({ width: 1280, height: 900 })
 
   // Revoke the offline device first, then close the socket and revoke the online one.
@@ -231,9 +264,10 @@ if (results.captionCorrect !== true) failures.push(`caption after socket: ${resu
 if (results.unnamedButtons !== 0) failures.push(`${results.unnamedButtons} buttons have no accessible name`)
 if (results.revokeLabelNamesDevice !== true) failures.push('the revoke button does not name the device')
 if (results.captionHasCounts !== true) failures.push('the device table caption does not state counts')
-if (results.firstTabFocusVisible !== true) failures.push('the first Tab stop has no visible focus ring')
+if (results.keyboardFocus?.length !== 4 || results.keyboardFocus.some(stop => !stop.visible)) failures.push('the named keyboard route has a wrong target or invisible focus ring')
+if (results.reducedMotion !== true) failures.push('reduced motion did not shorten the animated login input transition')
 if (results.noHorizontalOverflow360 !== true) failures.push('horizontal overflow at 360px')
-if (results.noHorizontalOverflowZoom200 !== true) failures.push('horizontal overflow at 200% zoom width')
+if (results.noHorizontalOverflow640 !== true) failures.push('horizontal overflow at 640px (not a browser zoom test)')
 if (results.revoked !== true) failures.push('revoked device stayed in the server list')
 if (results.logoutReturnedToLogin !== true) failures.push('logout did not return to the login screen')
 if (results.meAfterLogout !== 401) failures.push(`session survived logout (${results.meAfterLogout})`)
