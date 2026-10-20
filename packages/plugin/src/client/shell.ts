@@ -53,6 +53,14 @@ export function installStyle(clientModuleId: string): () => void {
     // the shell adds classes like dshRemoteTargetActive to <html>, so a substring
     // selector would restyle every control in the Harness UI.
     ':is(.dshRemotePage,.dshRemoteSettings,.dshRemoteConnectBar,.dshRemotePluginCard,.dshRemoteRoutePanel,.dshRemoteLoginServer) :is(button,input,select,textarea):focus-visible{outline:2px solid var(--dshRemoteAccent);outline-offset:2px}',
+    // Notices and badges (design step 3): tone is carried by colour *and* text.
+    '.dshRemoteBadge{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--dshRemoteBorder);border-radius:999px;padding:1px 8px;font-size:12px;line-height:1.6;color:var(--dshRemoteInkMuted);white-space:nowrap}',
+    '.dshRemoteBadge.is-ok{color:var(--dshRemoteSuccess);border-color:color-mix(in srgb,var(--dshRemoteSuccess) 45%,transparent)}',
+    '.dshRemoteBadge.is-warning{color:var(--dshRemoteWarning);border-color:color-mix(in srgb,var(--dshRemoteWarning) 45%,transparent)}',
+    '.dshRemoteBadge.is-danger{color:var(--dshRemoteDanger);border-color:color-mix(in srgb,var(--dshRemoteDanger) 45%,transparent)}',
+    '.dshRemoteConnectBar.isDrop{border-left:3px solid var(--dshRemoteWarning);background:color-mix(in srgb,var(--dshRemoteWarning) 10%,transparent)}',
+    '.dshRemoteConnectBar.isError{border-left:3px solid var(--dshRemoteDanger);background:color-mix(in srgb,var(--dshRemoteDanger) 10%,transparent)}',
+    '.dshRemoteNotice{color:var(--dshRemoteInkMuted)}.dshRemoteError{color:var(--dshRemoteDanger)}',
     ':is(.dshRemotePage,.dshRemoteSettings,.dshRemoteConnectBar,.dshRemotePluginCard,.dshRemoteRoutePanel,.dshRemoteLoginServer) :is(button,input,select,textarea):disabled{opacity:.45;cursor:default}',
     ':is(.dshRemotePage,.dshRemoteSettings,.dshRemoteConnectBar,.dshRemotePluginCard,.dshRemoteRoutePanel,.dshRemoteLoginServer) [aria-busy="true"]{cursor:progress;opacity:.7}',
     ':is(.dshRemotePage,.dshRemoteSettings,.dshRemoteConnectBar,.dshRemotePluginCard,.dshRemoteRoutePanel,.dshRemoteLoginServer) button:not(:disabled):not([data-variant="primary"]):not(.dshRemoteSave):hover{background:var(--dshRemoteHover)}',

@@ -76,7 +76,8 @@ thead th { font-size: 10px; font-weight: 500; color: var(--muted); background: v
 tbody th { font-weight: 600; }
 .device-status { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-size: 11px; }
 .device-status::before { content: ''; width: 6px; height: 6px; background: #98a9b0; border-radius: 50%; flex: 0 0 auto; }
-.device-status.online { color: var(--success); }
+.device-status { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.device-status.online { color: var(--success); border-color: color-mix(in srgb, var(--success) 45%, transparent); }
 .device-status.online::before { background: currentColor; }
 .empty-state { padding: 36px 24px 42px; text-align: center; border-top: 1px solid var(--border); }
 .empty-symbol { display: inline-grid; place-items: center; width: 44px; height: 44px; background: var(--wash); color: var(--accent); border-radius: 12px; font-size: 24px; }

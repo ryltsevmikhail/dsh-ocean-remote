@@ -919,7 +919,7 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
     const startupError = status?.startupError
     const startupBar = startupError === undefined
       ? null
-      : React.createElement('div', { className: 'dshRemoteConnectBar isDrop', role: 'alert' },
+      : React.createElement('div', { className: 'dshRemoteConnectBar isError', role: 'alert' },
         React.createElement('div', { className: 'dshRemoteConnectText' },
           React.createElement('strong', null, t('startupFailed', { message: '' }).split(':')[0]),
           React.createElement('span', null, startupError.code === 'IDENTITY_IN_USE'
@@ -1148,7 +1148,9 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
                       device.harnessVersion === undefined ? undefined : t('harnessVersion', { version: device.harnessVersion }),
                       device.clientVersion === undefined ? undefined : t('pluginVersion', { version: device.clientVersion }),
                     ].filter(Boolean).join(' · '))),
-                    React.createElement('small', null, t(device.online ? 'online' : 'offline')))))) : null,
+                    React.createElement('small', {
+                      className: `dshRemoteBadge ${device.online ? 'is-ok' : ''}`,
+                    }, t(device.online ? 'online' : 'offline')))))) : null,
               React.createElement(RemoteProgressView, { progress, t }),
               // Explicit connection state: account/trust live in their own surfaces,
               // this line only reports the transport for the chosen Host.
