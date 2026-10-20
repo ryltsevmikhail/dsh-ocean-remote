@@ -74,7 +74,6 @@ caption { text-align: left; padding: 18px 20px; color: var(--muted); font-size: 
 td, th { padding: 16px 20px; border-top: 1px solid var(--border); max-width: 300px; overflow-wrap: anywhere; }
 thead th { font-size: 10px; font-weight: 500; color: var(--muted); background: var(--wash); }
 tbody th { font-weight: 600; }
-.device-status { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-size: 11px; }
 .device-status::before { content: ''; width: 6px; height: 6px; background: #98a9b0; border-radius: 50%; flex: 0 0 auto; }
 .device-status { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; font-size: 12px; color: var(--muted); white-space: nowrap; }
 .device-status.online { color: var(--success); border-color: color-mix(in srgb, var(--success) 45%, transparent); }
@@ -108,7 +107,6 @@ tbody th { font-weight: 600; }
 @media (prefers-color-scheme: dark) {
   :root { background: #212327; color: #e5e5e5; color-scheme: dark; --surface: #292b30; --ink: #f0f0f0; --muted: #a6a8b0; --border: #3d3f46; --border-strong: #9aa0a6; --accent: #8a9bff; --wash: #303447; --success: #86d6b2; --warning: #d89614; --danger: #f5c4b9; --error-wash: #382a29; --error-border: #6c4841; }
   .error { color: var(--danger); background: var(--error-wash); border-color: var(--error-border); }
-  .device-status.online { color: var(--success); }
 }
 
 /* Shared control states (design step 2): inputs, focus, busy and danger actions. */
