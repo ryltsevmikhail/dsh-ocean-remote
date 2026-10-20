@@ -33994,7 +33994,7 @@ var IsolatedAcpClient = class {
 
 // src/workspace-bridge.ts
 import { realpath as realpath3, lstat as lstat2, readdir as readdir2, open as open2, stat as stat3, watch } from "node:fs/promises";
-import { isAbsolute as isAbsolute4, join as join7, relative as relative2, resolve as resolve3 } from "node:path";
+import { isAbsolute as isAbsolute4, join as join7, relative as relative2, resolve as resolve3, sep } from "node:path";
 
 // src/remote-terminal-controller.ts
 var import_headless = __toESM(require_xterm_headless(), 1);
@@ -34773,13 +34773,13 @@ var WorkspaceBridge = class {
   async safePath(root, path, directory) {
     const candidate = isAbsolute4(path) ? resolve3(path) : resolve3(root, path);
     const rel = relative2(root, candidate);
-    if (rel.startsWith("..") || isAbsolute4(rel)) throw this.scopeError("WORKSPACE_PATH_DENIED", "The requested workspace path is outside the CodeX workspace.");
+    if (escapesRoot(rel)) throw this.scopeError("WORKSPACE_PATH_DENIED", "The requested workspace path is outside the CodeX workspace.");
     try {
       const info = await lstat2(candidate);
       if (info.isSymbolicLink()) throw new Error();
       const canonical = await realpath3(candidate);
       const canonicalRel = relative2(root, canonical);
-      if (canonicalRel.startsWith("..") || isAbsolute4(canonicalRel)) throw new Error();
+      if (escapesRoot(canonicalRel)) throw new Error();
       if (directory && !info.isDirectory()) throw new Error();
       return canonical;
     } catch {
@@ -34787,6 +34787,9 @@ var WorkspaceBridge = class {
     }
   }
 };
+function escapesRoot(rel) {
+  return isAbsolute4(rel) || rel === ".." || rel.startsWith(`..${sep}`);
+}
 function argsOf(payload) {
   const value = isRecord16(payload) ? payload : {};
   return isRecord16(value.args) ? value.args : value;
@@ -36754,7 +36757,7 @@ function isSessionMutation(method) {
 
 // src/acp/adapters/antigravity/transcript-loader.ts
 import { promises as fs3 } from "node:fs";
-import { isAbsolute as isAbsolute5, join as join10, relative as relative3, resolve as resolve4, sep } from "node:path";
+import { isAbsolute as isAbsolute5, join as join10, relative as relative3, resolve as resolve4, sep as sep2 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 import { homedir as homedir4 } from "node:os";
 import { createRequire as createRequire2 } from "node:module";
@@ -36921,7 +36924,7 @@ async function discoverAntigravityWorkspaces(dbPath = join10(homedir4(), ".gemin
             try {
               const p = fileURLToPath2(u);
               const imageRelative = relative3(AGY_IMAGE_ROOT, p);
-              const imageCache = imageRelative === "" || !isAbsolute5(imageRelative) && imageRelative !== ".." && !imageRelative.startsWith(`..${sep}`);
+              const imageCache = imageRelative === "" || !isAbsolute5(imageRelative) && imageRelative !== ".." && !imageRelative.startsWith(`..${sep2}`);
               if (!imageCache) paths.add(p);
             } catch {
             }

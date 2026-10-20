@@ -1,5 +1,5 @@
 import { realpath, lstat, readdir, open, stat, watch } from 'node:fs/promises'
-import { isAbsolute, join, relative, resolve } from 'node:path'
+import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { RpcError } from './safe-error.js'
 import type { TypertRpcResult } from './typert-gateway-contract.js'
 import { RemoteTerminalController, RemoteTerminalState } from './remote-terminal-controller.js'
@@ -193,18 +193,24 @@ export class WorkspaceBridge {
     // still prove that it belongs to this authenticated workspace root.
     const candidate = isAbsolute(path) ? resolve(path) : resolve(root, path)
     const rel = relative(root, candidate)
-    if (rel.startsWith('..') || isAbsolute(rel)) throw this.scopeError('WORKSPACE_PATH_DENIED', 'The requested workspace path is outside the CodeX workspace.')
+    // `..` alone escapes; a sibling file legitimately named `..notes.txt` does not.
+    if (escapesRoot(rel)) throw this.scopeError('WORKSPACE_PATH_DENIED', 'The requested workspace path is outside the CodeX workspace.')
     try {
       const info = await lstat(candidate)
       if (info.isSymbolicLink()) throw new Error()
       const canonical = await realpath(candidate)
       const canonicalRel = relative(root, canonical)
-      if (canonicalRel.startsWith('..') || isAbsolute(canonicalRel)) throw new Error()
+      if (escapesRoot(canonicalRel)) throw new Error()
       if (directory && !info.isDirectory()) throw new Error()
       return canonical
     } catch { throw this.scopeError('WORKSPACE_PATH_DENIED', 'The requested workspace path is unavailable.') }
   }
 
+}
+
+/** True when a relative path leaves the root; plain `..name` filenames are allowed. */
+function escapesRoot(rel: string): boolean {
+  return isAbsolute(rel) || rel === '..' || rel.startsWith(`..${sep}`)
 }
 
 function argsOf(payload: unknown): Record<string, unknown> { const value = isRecord(payload) ? payload : {}; return isRecord(value.args) ? value.args : value }

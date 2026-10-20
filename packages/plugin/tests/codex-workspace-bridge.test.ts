@@ -98,6 +98,8 @@ describe('CodeX workspace and terminal bridge', () => {
     const sibling = join(base, 'ws-evil')
     await mkdir(root); await mkdir(sibling)
     await writeFile(join(root, 'inside.txt'), 'inside')
+    // A legitimate file whose name starts with dots must stay readable.
+    await writeFile(join(root, '..notes.txt'), 'notes')
     await writeFile(join(sibling, 'secret.txt'), 'secret')
     // A link inside the workspace must not become a window to the outside.
     await symlink(join(sibling, 'secret.txt'), join(root, 'link-out.txt'))
@@ -106,19 +108,25 @@ describe('CodeX workspace and terminal bridge', () => {
     try {
       await expect(bridge.call('workspaceFiles/read', { args: { workspaceFileScopeId: 'codex:one', path: 'inside.txt' } }, signal))
         .resolves.toMatchObject({ ok: true })
-      const denied = [
-        // Absolute path outside the workspace.
-        join(sibling, 'secret.txt'),
-        // Symlink to a file outside.
-        'link-out.txt',
-        // Symlink to a directory outside.
-        'link-dir/secret.txt',
-        // Sibling directory that shares the workspace prefix.
-        '../ws-evil/secret.txt',
-      ]
-      for (const path of denied) {
-        await expect(bridge.call('workspaceFiles/read', { args: { workspaceFileScopeId: 'codex:one', path } }, signal))
-          .rejects.toMatchObject({ code: 'CODEX_WORKSPACE_PATH_DENIED' })
+      // Positive controls: a dot-prefixed name and an absolute path inside the root
+      // are both legitimate, so a regression that forbids them is caught here.
+      await expect(bridge.call('workspaceFiles/read', { args: { workspaceFileScopeId: 'codex:one', path: '..notes.txt' } }, signal))
+        .resolves.toMatchObject({ ok: true, value: { text: 'notes' } })
+      await expect(bridge.call('workspaceFiles/read', { args: { workspaceFileScopeId: 'codex:one', path: join(await realpath(root), 'inside.txt') } }, signal))
+        .resolves.toMatchObject({ ok: true })
+      const denial = async (path: string) => {
+        const error = await bridge.call('workspaceFiles/read', { args: { workspaceFileScopeId: 'codex:one', path } }, signal)
+          .then(() => undefined, (reason: unknown) => reason as { code?: string; message?: string })
+        expect(error?.code).toBe('CODEX_WORKSPACE_PATH_DENIED')
+        return error?.message ?? ''
+      }
+      // The absolute sibling is refused by the lexical containment check...
+      expect(await denial(join(sibling, 'secret.txt'))).toContain('outside the CodeX workspace')
+      // ...as is a plain `..` escape.
+      expect(await denial('../ws-evil/secret.txt')).toContain('outside the CodeX workspace')
+      // Symlinks are refused by the canonical check, which reports a different reason.
+      for (const path of ['link-out.txt', 'link-dir/secret.txt']) {
+        expect(await denial(path)).toContain('unavailable')
       }
       // A directory endpoint must not accept a regular file, and vice versa.
       await expect(bridge.call('workspaceFiles/list', { args: { workspaceFileScopeId: 'codex:one', path: 'inside.txt' } }, signal))
