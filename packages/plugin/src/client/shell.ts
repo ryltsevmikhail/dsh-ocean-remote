@@ -54,6 +54,7 @@ export function installStyle(clientModuleId: string): () => void {
     // selector would restyle every control in the Harness UI.
     ':is(.dshRemotePage,.dshRemoteSettings,.dshRemoteConnectBar,.dshRemotePluginCard,.dshRemoteRoutePanel,.dshRemoteLoginServer) :is(button,input,select,textarea):focus-visible{outline:2px solid var(--dshRemoteAccent);outline-offset:2px}',
     // Notices and badges (design step 3): tone is carried by colour *and* text.
+    '.dshRemoteSha{font-family:var(--dshRemoteMono);font-size:12px;line-height:1.55;overflow-wrap:anywhere;user-select:all;color:var(--dshRemoteInkMuted)}',
     '.dshRemoteBadge{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--dshRemoteBorder);border-radius:999px;padding:1px 8px;font-size:12px;line-height:1.6;color:var(--dshRemoteInkMuted);white-space:nowrap}',
     '.dshRemoteBadge.is-ok{color:var(--dshRemoteSuccess);border-color:color-mix(in srgb,var(--dshRemoteSuccess) 45%,transparent)}',
     '.dshRemoteConnectBar.isDrop{border-left:3px solid var(--dshRemoteWarning)}',

@@ -2767,9 +2767,9 @@ Minimum version required to store current data is: ` + bestVersion + `.
             { key: role, className: "dshRemoteField" },
             h("h4", null, role === "host" ? "Host \u2014 \u043A\u043B\u044E\u0447 \u043F\u0440\u0438\u043D\u0438\u043C\u0430\u044E\u0449\u0435\u0439 \u0441\u0442\u043E\u0440\u043E\u043D\u044B" : "Client \u2014 \u043A\u043B\u044E\u0447 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0430\u044E\u0449\u0435\u0439\u0441\u044F \u0441\u0442\u043E\u0440\u043E\u043D\u044B"),
             validView?.available ? null : h("p", null, "\u0420\u043E\u043B\u044C \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430."),
-            h("p", null, "\u0421\u043E\u0431\u0441\u0442\u0432\u0435\u043D\u043D\u044B\u0439 Device ID: ", h("code", null, validView?.self?.deviceId ?? "\u2014")),
-            h("p", null, "\u0421\u043E\u0431\u0441\u0442\u0432\u0435\u043D\u043D\u044B\u0439 \u043F\u043E\u043B\u043D\u044B\u0439 SHA-256: ", h("code", { style: { overflowWrap: "anywhere" } }, validView?.self?.fullFingerprint ?? "\u2014")),
-            h("p", null, "\u041E\u0436\u0438\u0434\u0430\u044E\u0449\u0438\u0435 \u0437\u0430\u043F\u0440\u043E\u0441\u044B \u0434\u0435\u0439\u0441\u0442\u0432\u0443\u044E\u0442 \u0434\u043E 5 \u043C\u0438\u043D\u0443\u0442. \u0421\u0440\u043E\u043A \u043F\u0440\u043E\u0432\u0435\u0440\u044F\u0435\u0442 \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u0430\u044F \u0441\u043B\u0443\u0436\u0431\u0430, \u0430 \u043D\u0435 \u0447\u0430\u0441\u044B \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430. \u0418\u0437\u043C\u0435\u043D\u0438\u0432\u0448\u0438\u0439\u0441\u044F \u0438\u0437\u0432\u0435\u0441\u0442\u043D\u044B\u0439 \u043A\u043B\u044E\u0447 \u043D\u0435\u043B\u044C\u0437\u044F \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044C \u0437\u0434\u0435\u0441\u044C."),
+            h("p", null, "\u0421\u043E\u0431\u0441\u0442\u0432\u0435\u043D\u043D\u044B\u0439 Device ID: ", h("code", { className: "dshRemoteSha" }, validView?.self?.deviceId ?? "\u2014")),
+            h("p", null, "\u0421\u043E\u0431\u0441\u0442\u0432\u0435\u043D\u043D\u044B\u0439 \u043F\u043E\u043B\u043D\u044B\u0439 SHA-256: ", h("code", { className: "dshRemoteSha" }, validView?.self?.fullFingerprint ?? "\u2014")),
+            h("p", null, `\u041E\u0436\u0438\u0434\u0430\u044E\u0449\u0438\u0435 \u0437\u0430\u043F\u0440\u043E\u0441\u044B: ${validView?.pending?.length ?? 0}. \u041A\u0430\u0436\u0434\u044B\u0439 \u0434\u0435\u0439\u0441\u0442\u0432\u0443\u0435\u0442 \u0434\u043E 5 \u043C\u0438\u043D\u0443\u0442; \u0441\u0440\u043E\u043A \u043F\u0440\u043E\u0432\u0435\u0440\u044F\u0435\u0442 \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u0430\u044F \u0441\u043B\u0443\u0436\u0431\u0430, \u0430 \u043D\u0435 \u0447\u0430\u0441\u044B \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430. \u0418\u0437\u043C\u0435\u043D\u0438\u0432\u0448\u0438\u0439\u0441\u044F \u0438\u0437\u0432\u0435\u0441\u0442\u043D\u044B\u0439 \u043A\u043B\u044E\u0447 \u043D\u0435\u043B\u044C\u0437\u044F \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044C \u0437\u0434\u0435\u0441\u044C.`),
             ...(validView?.pending ?? []).map((item) => {
               let key = keyOf(role, validView.epochId, item.deviceId, item.generation), draft = drafts[key] ?? { checked: !1, fingerprint: "" }, update = (change) => setDrafts((previous) => ({ ...previous, [key]: { ...previous[key] ?? { checked: !1, fingerprint: "" }, ...change } })), knownChanged = validView.trusted.some((pin) => pin.deviceId === item.deviceId && pin.fullFingerprint !== item.fullFingerprint), disabled = busy || !writable || !validView.available || item.role !== role || item.epochId !== validView.epochId || knownChanged;
               return h(
@@ -2778,7 +2778,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
                 h("strong", null, "\u041D\u0435\u0434\u043E\u0432\u0435\u0440\u0435\u043D\u043D\u043E\u0435 \u0438\u043C\u044F \u0437\u0430\u043F\u0440\u043E\u0441\u0430: ", item.name),
                 h("p", null, "Device ID: ", h("code", null, item.deviceId), "; \u043F\u043B\u0430\u0442\u0444\u043E\u0440\u043C\u0430: ", item.platform),
                 h("p", null, "\u041D\u0435\u0434\u043E\u0432\u0435\u0440\u0435\u043D\u043D\u044B\u0439 origin: ", item.origin ?? "\u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D"),
-                h("p", null, "\u041F\u043E\u043B\u043D\u044B\u0439 SHA-256 \u0437\u0430\u043F\u0440\u043E\u0441\u0430: ", h("code", { style: { overflowWrap: "anywhere" } }, item.fullFingerprint)),
+                h("p", null, "\u041F\u043E\u043B\u043D\u044B\u0439 SHA-256 \u0437\u0430\u043F\u0440\u043E\u0441\u0430: ", h("code", { className: "dshRemoteSha" }, item.fullFingerprint)),
                 knownChanged ? h("p", { className: "dshRemoteError" }, "\u0418\u0437\u0432\u0435\u0441\u0442\u043D\u044B\u0439 \u043A\u043B\u044E\u0447 \u0438\u0437\u043C\u0435\u043D\u0438\u043B\u0441\u044F. \u041F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u0435 \u0437\u0430\u043F\u0440\u0435\u0449\u0435\u043D\u043E.") : null,
                 h("label", null, h("input", { type: "checkbox", checked: draft.checked, disabled, onChange: (event) => update({ checked: event.target.checked }) }), "\u0421\u0432\u0435\u0440\u0438\u043B \u043F\u043E\u043B\u043D\u044B\u0439 SHA-256 \u043D\u0430 \u0434\u0440\u0443\u0433\u043E\u043C \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0435"),
                 h("label", null, "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043F\u043E\u043B\u043D\u044B\u0439 SHA-256 \u0441 \u0434\u0440\u0443\u0433\u043E\u0433\u043E \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0430 (64 \u0441\u0438\u043C\u0432\u043E\u043B\u0430 0\u20139, A\u2013F):", h("input", {
@@ -2796,11 +2796,12 @@ Minimum version required to store current data is: ` + bestVersion + `.
               );
             }),
             h("h4", null, "\u0421\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0435 \u043A\u043B\u044E\u0447\u0438"),
+            (validView?.trusted ?? []).length === 0 ? h("p", null, "\u0421\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0445 \u043A\u043B\u044E\u0447\u0435\u0439 \u043D\u0435\u0442.") : null,
             ...(validView?.trusted ?? []).map((pin) => h(
               "div",
               { key: pin.deviceId },
               h("p", null, pin.name, " \u2014 Device ID: ", pin.deviceId, "; \u043F\u043B\u0430\u0442\u0444\u043E\u0440\u043C\u0430: ", pin.platform),
-              h("code", { style: { overflowWrap: "anywhere" } }, pin.fullFingerprint),
+              h("code", { className: "dshRemoteSha" }, pin.fullFingerprint),
               h("p", null, pin.provenance === "manual" ? "\u041F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0451\u043D \u0432\u0440\u0443\u0447\u043D\u0443\u044E." : "Legacy: \u043F\u0440\u043E\u0438\u0441\u0445\u043E\u0436\u0434\u0435\u043D\u0438\u0435 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u044F \u043D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u043E; \u043D\u0435 \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u0440\u0443\u0447\u043D\u044B\u043C \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u0435\u043C."),
               h("button", {
                 type: "button",
@@ -3616,6 +3617,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
       // selector would restyle every control in the Harness UI.
       ":is(.dshRemotePage,.dshRemoteSettings,.dshRemoteConnectBar,.dshRemotePluginCard,.dshRemoteRoutePanel,.dshRemoteLoginServer) :is(button,input,select,textarea):focus-visible{outline:2px solid var(--dshRemoteAccent);outline-offset:2px}",
       // Notices and badges (design step 3): tone is carried by colour *and* text.
+      ".dshRemoteSha{font-family:var(--dshRemoteMono);font-size:12px;line-height:1.55;overflow-wrap:anywhere;user-select:all;color:var(--dshRemoteInkMuted)}",
       ".dshRemoteBadge{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--dshRemoteBorder);border-radius:999px;padding:1px 8px;font-size:12px;line-height:1.6;color:var(--dshRemoteInkMuted);white-space:nowrap}",
       ".dshRemoteBadge.is-ok{color:var(--dshRemoteSuccess);border-color:color-mix(in srgb,var(--dshRemoteSuccess) 45%,transparent)}",
       ".dshRemoteConnectBar.isDrop{border-left:3px solid var(--dshRemoteWarning)}",

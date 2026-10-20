@@ -123,9 +123,9 @@ export function createPeerTrustPanel(React: ClientReact) {
         return h('section', { key: role, className: 'dshRemoteField' },
           h('h4', null, role === 'host' ? 'Host — ключ принимающей стороны' : 'Client — ключ подключающейся стороны'),
           !validView?.available ? h('p', null, 'Роль недоступна.') : null,
-          h('p', null, 'Собственный Device ID: ', h('code', null, validView?.self?.deviceId ?? '—')),
-          h('p', null, 'Собственный полный SHA-256: ', h('code', { style: { overflowWrap: 'anywhere' } }, validView?.self?.fullFingerprint ?? '—')),
-          h('p', null, 'Ожидающие запросы действуют до 5 минут. Срок проверяет локальная служба, а не часы браузера. Изменившийся известный ключ нельзя подтвердить здесь.'),
+          h('p', null, 'Собственный Device ID: ', h('code', { className: 'dshRemoteSha' }, validView?.self?.deviceId ?? '—')),
+          h('p', null, 'Собственный полный SHA-256: ', h('code', { className: 'dshRemoteSha' }, validView?.self?.fullFingerprint ?? '—')),
+          h('p', null, `Ожидающие запросы: ${validView?.pending?.length ?? 0}. Каждый действует до 5 минут; срок проверяет локальная служба, а не часы браузера. Изменившийся известный ключ нельзя подтвердить здесь.`),
           ...(validView?.pending ?? []).map(item => {
             const key = keyOf(role, validView!.epochId, item.deviceId, item.generation)
             const draft = drafts[key] ?? { checked: false, fingerprint: '' }
@@ -136,7 +136,7 @@ export function createPeerTrustPanel(React: ClientReact) {
               h('strong', null, 'Недоверенное имя запроса: ', item.name),
               h('p', null, 'Device ID: ', h('code', null, item.deviceId), '; платформа: ', item.platform),
               h('p', null, 'Недоверенный origin: ', item.origin ?? 'не указан'),
-              h('p', null, 'Полный SHA-256 запроса: ', h('code', { style: { overflowWrap: 'anywhere' } }, item.fullFingerprint)),
+              h('p', null, 'Полный SHA-256 запроса: ', h('code', { className: 'dshRemoteSha' }, item.fullFingerprint)),
               knownChanged ? h('p', { className: 'dshRemoteError' }, 'Известный ключ изменился. Подтверждение запрещено.') : null,
               h('label', null, h('input', { type: 'checkbox', checked: draft.checked, disabled, onChange: (event: Event) => update({ checked: (event.target as HTMLInputElement).checked }) }), 'Сверил полный SHA-256 на другом устройстве'),
               h('label', null, 'Введите полный SHA-256 с другого устройства (64 символа 0–9, A–F):', h('input', {
@@ -148,9 +148,10 @@ export function createPeerTrustPanel(React: ClientReact) {
               h('button', { type: 'button', disabled: busy || !writable, onClick: () => void mutate(role, item.deviceId, item.generation, item.fullFingerprint, validView!.epochId, false) }, 'Отклонить'))
           }),
           h('h4', null, 'Сохранённые ключи'),
+          (validView?.trusted ?? []).length === 0 ? h('p', null, 'Сохранённых ключей нет.') : null,
           ...(validView?.trusted ?? []).map(pin => h('div', { key: pin.deviceId },
             h('p', null, pin.name, ' — Device ID: ', pin.deviceId, '; платформа: ', pin.platform),
-            h('code', { style: { overflowWrap: 'anywhere' } }, pin.fullFingerprint),
+            h('code', { className: 'dshRemoteSha' }, pin.fullFingerprint),
             h('p', null, pin.provenance === 'manual' ? 'Подтверждён вручную.' : 'Legacy: происхождение подтверждения неизвестно; не считается ручным подтверждением.'),
             h('button', {
               type: 'button', 'data-variant': 'danger', disabled: busy || !writable || validView?.available !== true || validView?.role !== role,
