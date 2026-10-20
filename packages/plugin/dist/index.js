@@ -30168,6 +30168,31 @@ function isPrivate(ip) {
   return parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31;
 }
 
+// src/reconnect-policy.ts
+var MAX_RECONNECT_ATTEMPTS = 6;
+function reconnectDelay(attempt, timing, random = Math.random) {
+  const step = Math.max(0, Math.min(attempt, 30));
+  const base = Math.min(timing.maxDelayMs, timing.initialDelayMs * 2 ** step);
+  const spread = Math.max(0, Math.min(1, timing.jitter)) * base;
+  const offset = (random() * 2 - 1) * spread;
+  return Math.max(0, Math.round(base + offset));
+}
+function shouldRetry(error) {
+  const retryable = error?.retryable;
+  if (retryable === false) return false;
+  const code = error?.code;
+  if (typeof code !== "string") return true;
+  return ![
+    "PEER_APPROVAL_REQUIRED",
+    "PEER_IDENTITY_MISMATCH",
+    "AUTH_REQUIRED",
+    "AUTH_INVALID",
+    "FEATURE_NOT_SUPPORTED",
+    "CONNECTION_REPLACED",
+    "HOST_VERSION_UNSUPPORTED"
+  ].includes(code);
+}
+
 // src/client-runtime.ts
 var ClientModeRuntime = class {
   constructor(config, identities, server, apiProxy, typertGateway, logger, host, rtcFactoryProvider = loadNodeRtcFactory) {
@@ -30308,6 +30333,8 @@ var ClientModeRuntime = class {
   connected;
   pendingWorkspaceSelection;
   lastDrop;
+  reconnectTimer;
+  reconnectAttempt = 0;
   codexVirtual;
   codexVirtualSelection;
   codexOpenedSessions = /* @__PURE__ */ new Map();
@@ -30573,6 +30600,8 @@ var ClientModeRuntime = class {
       throw new ClientModeError("CANCELLED", "The Remote connection request was superseded or closed.");
     }
     this.connected = next;
+    this.clearReconnectTimer();
+    this.reconnectAttempt = 0;
     this.lastDrop = void 0;
     this.connection.clearConnectionProgress(next.progressRunId);
     this.pendingWorkspaceSelection = void 0;
@@ -30852,8 +30881,41 @@ var ClientModeRuntime = class {
     if (this.closed) return;
     this.lastDrop = { deviceId: targetDeviceId, at: Date.now() };
     this.logger.warn("remote Harness session dropped unexpectedly", { targetDeviceId: shortId(targetDeviceId) });
+    this.scheduleReconnect(targetDeviceId);
+  }
+  /** Retries the same Host with backoff; a manual retry or an explicit leave cancels it. */
+  scheduleReconnect(targetDeviceId) {
+    if (!this.config.reconnect.enabled) return;
+    if (this.reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+      this.logger.warn("remote Harness reconnect attempts exhausted", { targetDeviceId: shortId(targetDeviceId) });
+      return;
+    }
+    const delay = reconnectDelay(this.reconnectAttempt, this.config.reconnect);
+    this.reconnectAttempt += 1;
+    this.clearReconnectTimer();
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = void 0;
+      if (this.closed || this.connected !== void 0) return;
+      void this.setMode("remote", targetDeviceId).catch((error) => {
+        this.logger.warn("remote Harness reconnect attempt failed", {
+          targetDeviceId: shortId(targetDeviceId),
+          reason: diagnosticReason(error)
+        });
+        if (shouldRetry(error)) this.scheduleReconnect(targetDeviceId);
+        else this.connectionProgress = void 0;
+      });
+    }, delay);
+    this.reconnectTimer.unref?.();
+  }
+  clearReconnectTimer() {
+    if (this.reconnectTimer !== void 0) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = void 0;
+    }
   }
   async leaveRemote() {
+    this.clearReconnectTimer();
+    this.reconnectAttempt = 0;
     this.lastDrop = void 0;
     this.remoteLifetime.abort(new ClientModeError("CANCELLED", "The Remote connection was closed."));
     this.remoteLifetime = new AbortController();

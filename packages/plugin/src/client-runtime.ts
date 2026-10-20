@@ -26,7 +26,7 @@ import type {
   RemoteWorkspaceSelection,
   RemoteWorkspaceView,
 } from './client-runtime-contract.js'
-import { ClientModeError, HOST_AUTHORIZATION_ERRORS, record, shortId } from './client-runtime-contract.js'
+import { ClientModeError, HOST_AUTHORIZATION_ERRORS, diagnosticReason, record, shortId } from './client-runtime-contract.js'
 import {
   invokeRemoteCommand,
   readRemoteWorkspaceBaseline,
@@ -58,6 +58,7 @@ import type { TypertGatewayLike } from './typert-gateway-contract.js'
 import { TypertGatewaySwitch } from './typert-gateway-switch.js'
 import type { WeriftFactoryOptions } from './werift-rtc.js'
 import { loadNodeRtcFactory } from './werift-rtc.js'
+import { MAX_RECONNECT_ATTEMPTS, reconnectDelay, shouldRetry } from './reconnect-policy.js'
 
 export class ClientModeRuntime {
   private async connect(targetDeviceId: string, signal?: AbortSignal): Promise<ConnectedRemote> {
@@ -84,6 +85,8 @@ export class ClientModeRuntime {
   private connected?: ConnectedRemote
   private pendingWorkspaceSelection?: RemoteWorkspaceSelection
   private lastDrop?: { deviceId: string; name?: string; at: number }
+  private reconnectTimer?: ReturnType<typeof setTimeout>
+  private reconnectAttempt = 0
   private codexVirtual?: CodexVirtualHarness
   private codexVirtualSelection?: { targetDeviceId: string; workspaceId: string }
   private readonly codexOpenedSessions = new Map<string, string>()
@@ -465,6 +468,8 @@ export class ClientModeRuntime {
       throw new ClientModeError('CANCELLED', 'The Remote connection request was superseded or closed.')
     }
     this.connected = next
+    this.clearReconnectTimer()
+    this.reconnectAttempt = 0
     this.lastDrop = undefined
     this.connection.clearConnectionProgress(next.progressRunId)
     this.pendingWorkspaceSelection = undefined
@@ -777,9 +782,41 @@ export class ClientModeRuntime {
     // The Host list is not cached here; the UI resolves the display name by id.
     this.lastDrop = { deviceId: targetDeviceId, at: Date.now() }
     this.logger.warn('remote Harness session dropped unexpectedly', { targetDeviceId: shortId(targetDeviceId) })
+    this.scheduleReconnect(targetDeviceId)
+  }
+
+  /** Retries the same Host with backoff; a manual retry or an explicit leave cancels it. */
+  private scheduleReconnect(targetDeviceId: string): void {
+    if (!this.config.reconnect.enabled) return
+    if (this.reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+      this.logger.warn('remote Harness reconnect attempts exhausted', { targetDeviceId: shortId(targetDeviceId) })
+      return
+    }
+    const delay = reconnectDelay(this.reconnectAttempt, this.config.reconnect)
+    this.reconnectAttempt += 1
+    this.clearReconnectTimer()
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = undefined
+      if (this.closed || this.connected !== undefined) return
+      void this.setMode('remote', targetDeviceId).catch(error => {
+        this.logger.warn('remote Harness reconnect attempt failed', {
+          targetDeviceId: shortId(targetDeviceId),
+          reason: diagnosticReason(error),
+        })
+        if (shouldRetry(error)) this.scheduleReconnect(targetDeviceId)
+        else this.connectionProgress = undefined
+      })
+    }, delay)
+    this.reconnectTimer.unref?.()
+  }
+
+  private clearReconnectTimer(): void {
+    if (this.reconnectTimer !== undefined) { clearTimeout(this.reconnectTimer); this.reconnectTimer = undefined }
   }
 
   private async leaveRemote(): Promise<void> {
+    this.clearReconnectTimer()
+    this.reconnectAttempt = 0
     this.lastDrop = undefined
     this.remoteLifetime.abort(new ClientModeError('CANCELLED', 'The Remote connection was closed.'))
     this.remoteLifetime = new AbortController()

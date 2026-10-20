@@ -31,6 +31,45 @@ const cleanupScenario1 = async () => {
 afterEach(cleanupScenario1)
 
 describe('ClientModeRuntime drop notice', () => {
+  it('retries the dropped Host with backoff and stops on an explicit return to local', async () => {
+    vi.useFakeTimers()
+    try {
+      const directory = await mkdtemp(join(tmpdir(), 'dsh-client-retry-'))
+      directories.push(directory)
+      const runtime = new ClientModeRuntime(config(), new IdentityStore({ directory }),
+        { bindIdentity: vi.fn(), revokeCurrentDevice: vi.fn(async () => undefined) } as unknown as ClientServerApi,
+        apiProxy(), gatewayWithCarrier(), logger())
+      try {
+        await runtime.start()
+        const state = runtime as unknown as {
+          connected: unknown
+          handleUnexpectedClose(targetDeviceId: string): void
+          connection: { connect: (id: string, signal?: AbortSignal) => Promise<unknown> }
+        }
+        state.connected = {
+          client: { close: vi.fn(async () => undefined), getStats: () => ({ mode: 'Relay', connected: true }) },
+          target: { deviceId: 'host-device-1', name: 'Workstation' },
+          features: {},
+        }
+        const connect = vi.spyOn(state.connection, 'connect')
+          .mockRejectedValue(Object.assign(new Error('socket hang up'), { code: 'CONNECTION_FAILED', retryable: true }))
+        // The close handler clears the active connection before reporting the drop.
+        state.connected = undefined
+        state.handleUnexpectedClose('host-device-1')
+        await vi.advanceTimersByTimeAsync(2000)
+        expect(connect).toHaveBeenCalled()
+        const firstAttempts = connect.mock.calls.length
+        await vi.advanceTimersByTimeAsync(4000)
+        expect(connect.mock.calls.length).toBeGreaterThan(firstAttempts)
+        // Leaving the Remote mode cancels any pending retry.
+        await runtime.setMode('local')
+        const afterLeave = connect.mock.calls.length
+        await vi.advanceTimersByTimeAsync(30_000)
+        expect(connect.mock.calls.length).toBe(afterLeave)
+      } finally { await runtime.close() }
+    } finally { vi.useRealTimers() }
+  })
+
   it('exposes an unexpected drop and clears it on an explicit return to local mode', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'dsh-client-drop-'))
     directories.push(directory)
