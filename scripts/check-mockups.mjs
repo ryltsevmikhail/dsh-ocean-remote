@@ -2,15 +2,23 @@
 // Responsive and accessibility smoke test for the design mockups
 // (docs/design/fork/mockups/*.html, UX-08/UX-10).
 //
-// Rendering needs Playwright, which is intentionally not a repository dependency:
-// this is a local design QA step. Without Playwright the script reports SKIPPED and
-// exits 0 so CI never pretends the check ran. Set PLAYWRIGHT to a playwright entrypoint.
+// Rendering needs Playwright, which is intentionally not a repository dependency, so
+// this is a local design QA step. When Playwright is unavailable the script FAILS
+// instead of pretending the check ran; pass --allow-skip to record a deliberate skip.
+// Usage:
+//   node scripts/check-mockups.mjs [--allow-skip] [--write-shots]
+//   PLAYWRIGHT=/path/to/playwright/index.mjs node scripts/check-mockups.mjs
+//   CHROME=/usr/bin/google-chrome-stable ... (overrides the browser binary)
 
-import { readdir } from 'node:fs/promises'
+import { readdir, writeFile } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 
 const root = new URL('..', import.meta.url)
 const mockups = new URL('docs/design/fork/mockups/', root)
+const args = new Set(process.argv.slice(2))
+const allowSkip = args.has('--allow-skip')
+const writeShots = args.has('--write-shots')
 const VIEWPORTS = [
   { name: 'narrow', width: 360, height: 900, scale: 2 },
   { name: 'tablet', width: 768, height: 1024, scale: 1 },
@@ -18,6 +26,7 @@ const VIEWPORTS = [
 ]
 
 async function loadPlaywright() {
+  // Candidates may already be file: URLs (import.meta.url) or bare specifiers.
   const candidates = [
     process.env.PLAYWRIGHT,
     new URL('../.local/browser-check/node_modules/playwright/index.mjs', import.meta.url).href,
@@ -26,31 +35,56 @@ async function loadPlaywright() {
   const problems = []
   for (const candidate of candidates) {
     try {
-      const url = candidate.startsWith('file:') || candidate.startsWith('/') ? pathToFileURL(candidate).href : candidate
-      return await import(url)
+      return { module: await import(candidate.startsWith('file:') ? candidate : pathToFileURL(candidate).href) }
     } catch (error) {
-      problems.push(String(error).slice(0, 120))
+      problems.push(`${candidate}: ${String(error?.message ?? error).slice(0, 140)}`)
     }
   }
-  return { missing: problems }
+  return { problems }
 }
 
-const playwright = await loadPlaywright()
-if (playwright.missing !== undefined) {
-  console.log('SKIPPED: Playwright is not available, so the mockup layout was not measured.')
-  process.exit(0)
+const loaded = await loadPlaywright()
+if (loaded.problems !== undefined) {
+  console.error('Playwright is not available, so the mockup layout was NOT measured:')
+  for (const problem of loaded.problems) console.error(`- ${problem}`)
+  if (allowSkip) {
+    console.error('Skipping deliberately (--allow-skip).')
+    process.exit(0)
+  }
+  console.error('Install Playwright or set PLAYWRIGHT; pass --allow-skip to skip on purpose.')
+  process.exit(1)
+}
+
+/** Launch the bundled browser first, then fall back to a system one. */
+async function launch(playwright) {
+  const attempts = [{ label: 'bundled chromium' }]
+  const chrome = process.env.CHROME ?? '/usr/bin/google-chrome-stable'
+  attempts.push({ label: chrome, executablePath: chrome })
+  const problems = []
+  for (const attempt of attempts) {
+    try {
+      return await playwright.chromium.launch({
+        headless: true,
+        chromiumSandbox: true,
+        args: ['--no-proxy-server'],
+        ...(attempt.executablePath === undefined ? {} : { executablePath: attempt.executablePath }),
+      })
+    } catch (error) {
+      problems.push(`${attempt.label}: ${String(error?.message ?? error).slice(0, 120)}`)
+    }
+  }
+  throw new Error(`no browser could be launched:\n- ${problems.join('\n- ')}`)
 }
 
 const files = (await readdir(mockups)).filter(name => name.endsWith('.html')).sort()
 if (files.length === 0) throw new Error('no mockup html files found')
 
 const failures = []
-// Use the system browser when the bundled one is absent (CHROME may override).
-const executablePath = process.env.CHROME ?? '/usr/bin/google-chrome-stable'
-const browser = await playwright.chromium.launch({ headless: true, chromiumSandbox: true, args: ['--no-proxy-server'], ...(executablePath ? { executablePath } : {}) })
+const browser = await launch(loaded.module)
 try {
   for (const file of files) {
-    const url = pathToFileURL(new URL(file, mockups).pathname).href
+    const url = new URL(file, mockups).href
+    const expectedSha = Number(/data-sha-count="(\d+)"/u.exec(await readFile(new URL(file, mockups), 'utf8'))?.[1] ?? '0')
     for (const viewport of VIEWPORTS) {
       const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: viewport.scale })
       try {
@@ -58,43 +92,65 @@ try {
         await page.goto(url, { waitUntil: 'load' })
         const report = await page.evaluate(() => {
           const doc = document.documentElement
-          // Long identifiers must stay complete and readable.
-          const longText = [...document.querySelectorAll('.sha')].map(node => ({
+          const accessibleName = node => {
+            const direct = node.getAttribute('aria-label')?.trim()
+            if (direct) return direct
+            const labelledBy = node.getAttribute('aria-labelledby')
+            if (labelledBy) {
+              const text = labelledBy.split(/\s+/u).map(id => document.getElementById(id)?.textContent ?? '').join(' ').trim()
+              if (text !== '') return text
+            }
+            if (node.id !== '') {
+              const explicit = document.querySelector(`label[for="${CSS.escape(node.id)}"]`)
+              if (explicit !== null) return explicit.textContent?.trim() ?? ''
+            }
+            const wrapping = node.closest('label')
+            if (wrapping !== null) return wrapping.textContent?.trim() ?? ''
+            if (node instanceof HTMLInputElement && ['submit', 'button', 'reset'].includes(node.type)) return (node.value ?? '').trim()
+            if (node.getAttribute('title')) return node.getAttribute('title').trim()
+            return (node.textContent ?? '').trim()
+          }
+          const controls = [...document.querySelectorAll('button, input, select, textarea, a[href], [role="switch"]')]
+          const unnamed = controls.filter(node => accessibleName(node) === '').map(node => node.outerHTML.slice(0, 90))
+          const sha = [...document.querySelectorAll('.sha')].map(node => ({
             length: (node.textContent ?? '').replace(/\s+/gu, '').length,
-            clipped: node.scrollWidth > node.clientWidth + 1,
+            clipped: node.scrollWidth > node.clientWidth + 1 || node.scrollHeight > node.clientHeight + 1,
           }))
-          const unnamed = [...document.querySelectorAll('button, input, select, textarea, [role="switch"], a[href]')]
-            .filter(node => {
-              const label = node.getAttribute('aria-label') ?? node.getAttribute('title')
-              const labelled = node.id !== '' && document.querySelector(`label[for="${node.id}"]`) !== null
-              const text = (node.textContent ?? '').trim()
-              return (label ?? '') === '' && !labelled && text === '' && !(node instanceof HTMLInputElement && node.type === 'checkbox')
-            })
-            .map(node => node.outerHTML.slice(0, 80))
-          // Focus must be visible: the computed outline must not be "none".
-          const firstButton = document.querySelector('button')
-          firstButton?.focus()
-          const focusOutline = firstButton === null ? '' : getComputedStyle(firstButton).outlineStyle
+          const focusIssues = []
+          // Disabled controls cannot take focus and are exempt (WCAG 2.1.1).
+          for (const node of document.querySelectorAll('button, a[href], input, select, textarea')) {
+            if (node.disabled === true) continue
+            node.focus()
+            const style = getComputedStyle(node)
+            const outline = style.outlineStyle !== 'none' && Number.parseFloat(style.outlineWidth) > 0
+            const shadow = style.boxShadow !== 'none' && style.boxShadow.includes('rgb')
+            if (!outline && !shadow) focusIssues.push(node.outerHTML.slice(0, 70))
+          }
           return {
-            horizontalOverflow: doc.scrollWidth > window.innerWidth + 1,
+            overflow: doc.scrollWidth > doc.clientWidth + 1,
             scrollWidth: doc.scrollWidth,
-            innerWidth: window.innerWidth,
-            longText,
+            clientWidth: doc.clientWidth,
+            sha,
             unnamed,
-            focusOutline,
+            focusIssues,
             headings: [...document.querySelectorAll('h1, h2, h3')].map(node => node.tagName),
           }
         })
         const where = `${file} @${viewport.name}`
-        if (report.horizontalOverflow) failures.push(`${where}: page scrolls horizontally (${report.scrollWidth} > ${report.innerWidth})`)
-        for (const item of report.longText) {
+        if (report.overflow) failures.push(`${where}: page scrolls horizontally (${report.scrollWidth} > ${report.clientWidth})`)
+        if (report.sha.length !== expectedSha) failures.push(`${where}: expected ${expectedSha} SHA fields, found ${report.sha.length}`)
+        for (const item of report.sha) {
           if (item.length !== 64) failures.push(`${where}: a SHA field has ${item.length} characters instead of 64`)
           if (item.clipped) failures.push(`${where}: a SHA field is clipped`)
         }
-        if (report.unnamed.length > 0) failures.push(`${where}: unnamed controls ${report.unnamed.join(' | ')}`)
-        if (report.focusOutline === 'none') failures.push(`${where}: no visible focus outline on the first button`)
+        if (report.unnamed.length > 0) failures.push(`${where}: controls without an accessible name: ${report.unnamed.join(' | ')}`)
+        if (report.focusIssues.length > 0) failures.push(`${where}: controls without a visible focus indicator: ${report.focusIssues.join(' | ')}`)
         if (!report.headings.includes('H2')) failures.push(`${where}: no section heading (h2) for navigation`)
-        console.log(`ok   ${where.padEnd(46)} no overflow, ${report.longText.length} SHA fields intact, focus ${report.focusOutline}`)
+        if (writeShots) {
+          await writeFile(new URL(`${file.replace(/\.html$/u, '')}-${viewport.name}.png`, mockups),
+            await page.screenshot({ fullPage: true }))
+        }
+        console.log(`ok   ${where.padEnd(42)} ${report.scrollWidth}/${report.clientWidth} px, ${report.sha.length} SHA, ${report.focusIssues.length} focus issues`)
       } finally {
         await context.close()
       }
