@@ -52,6 +52,26 @@ function facade() {
   }
 }
 
+describe('control startup failure reporting (unit)', () => {
+  it('explains an identity directory that another process owns', async () => {
+    const control = unitControl(new PluginControlRuntime(resolveConfig({ deviceName: 'synthetic-device' }),
+      '/unused-synthetic-unit-directory', undefined, undefined, undefined, undefined,
+      () => Object.assign(new Error('identity directory is owned'), { code: 'IDENTITY_IN_USE' })))
+    const result = await control.handle('status', {}, new AbortController().signal, local)
+    expect(result.ok).toBe(true)
+    expect((result as { value: Record<string, unknown> }).value).toMatchObject({
+      startupError: { code: 'IDENTITY_IN_USE' },
+    })
+  })
+
+  it('omits the field when startup succeeded', async () => {
+    const control = unitControl(new PluginControlRuntime(resolveConfig({ deviceName: 'synthetic-device' }),
+      '/unused-synthetic-unit-directory', undefined, undefined, undefined, undefined, () => undefined))
+    const result = await control.handle('status', {}, new AbortController().signal, local)
+    expect((result as { value: Record<string, unknown> }).value).not.toHaveProperty('startupError')
+  })
+})
+
 describe('control diagnostics snapshot (unit)', () => {
   it('describes the Client role even though a Host runtime object always exists', async () => {
     const client = facade()

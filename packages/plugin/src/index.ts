@@ -306,9 +306,11 @@ async function activate(
     return replacement
   }
 
+  let startupFailure: unknown
   const controlRuntime = connection === undefined
     ? undefined
-    : new PluginControlRuntime(config, defaultIdentityDirectory, settingsBinding, clientRuntime, runtime, replaceServer)
+    : new PluginControlRuntime(config, defaultIdentityDirectory, settingsBinding, clientRuntime, runtime, replaceServer,
+      () => startupFailure)
 
   ctx.provide('dshRemote', runtime)
   if (clientRuntime !== undefined) ctx.provide('dshRemoteClient', clientRuntime)
@@ -333,11 +335,17 @@ async function activate(
       })()
       await startup
     } catch (error) {
+      // Keep the control route alive: an identity that cannot be acquired (another
+      // process, stale lease) must be explained in the UI instead of looking like a
+      // missing plugin. The Remote surfaces degrade to "unavailable" with a reason.
+      startupFailure = error
+      logger.error('remote plugin started without a usable identity', {
+        code: (error as { code?: unknown } | undefined)?.code,
+        reason: error instanceof Error ? error.message.slice(0, 200) : 'unknown',
+      })
       if (tuiBinding?.target === tuiTarget) tuiBinding.target = undefined
-      await disposeControl?.()
       await clientRuntime?.close()
       await runtime.close()
-      throw error
     }
     return async () => {
       closed = true

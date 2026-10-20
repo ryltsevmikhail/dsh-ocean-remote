@@ -914,6 +914,27 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
     // transport layer is satisfied, so a live A cannot mask a failed attempt to B.
     const layerDevice = pickLayerDevice({ selected: selectedHost, failed: failedHost, connecting: connectingHost, connected: connectedDevice })
     const layerStates = connectionLayers({ needsAuthorization, device: layerDevice, connectedTargetDeviceId: connectedTargetId })
+    // A plugin that cannot use its identity directory still needs a visible reason.
+    // A configured profile without an identity means the identity directory is
+    // unusable (another process, stale lease, indeterminate write): say so.
+    const identityMissing = status !== undefined && status.mode === 'local' && status.available !== true
+      && status.serverUrl !== undefined && status.host?.deviceId === undefined && status.deviceId === undefined
+    const startupError = status?.startupError
+      ?? (identityMissing ? { code: 'IDENTITY_UNAVAILABLE', message: '' } : undefined)
+    const startupBar = startupError === undefined
+      ? null
+      : React.createElement('div', { className: 'dshRemoteConnectBar isDrop', role: 'alert' },
+        React.createElement('div', { className: 'dshRemoteConnectText' },
+          React.createElement('strong', null, t('startupFailed', { message: '' }).split(':')[0]),
+          React.createElement('span', null, startupError.code === 'IDENTITY_UNAVAILABLE'
+            ? t('startupIdentityInUse', { file: '.identity-owner' })
+            : startupError.code === 'IDENTITY_IN_USE'
+            // The lease file is the only actionable detail; the rest is generic.
+            ? t('startupIdentityInUse', { file: '.identity-owner' })
+            : startupError.code === 'INDETERMINATE'
+              ? t('startupIndeterminate')
+              : t('startupFailed', { message: startupError.message }))))
+
     // An unexpected drop keeps the Host's work intact; offer one explicit way back.
     // Never guess a different Host: without its own row the notice stays text-only.
     const droppedDeviceId = status?.lastDrop?.deviceId
@@ -1017,6 +1038,7 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
             React.createElement('button', { type: 'button', className: 'dshRemotePageClose', onClick: () => setOpen(false), 'aria-label': t('close') }, '×'))),
         React.createElement('main', { className: 'dshRemotePageBody' },
           // Account/trust/transport stay visible even before sign-in succeeds.
+          startupBar,
           layerRow,
           dropBar,
           status?.mode === 'remote' ? React.createElement('button', {

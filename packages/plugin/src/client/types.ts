@@ -41,6 +41,8 @@ export interface RemoteStatus {
   connectedTargetDeviceId?: string
   /** Set when an established session closed without an operator action. */
   lastDrop?: RemoteDropNotice
+  /** The plugin activated but could not use its identity directory. */
+  startupError?: { code: string; message: string }
   /** Pending automatic retry after a drop (absent once it succeeds or gives up). */
   reconnect?: { targetDeviceId: string; attempt: number; nextAt: number }
   transport?: 'LAN' | 'P2P' | 'TURN' | 'Relay' | 'Disconnected'

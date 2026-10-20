@@ -1680,6 +1680,9 @@ Minimum version required to store current data is: ` + bestVersion + `.
     diagnosticsCopied: "Copied to the clipboard.",
     diagnosticsSelect: "Select the text below and copy it manually.",
     diagnosticsFailed: "Could not collect diagnostics. Try again.",
+    startupIdentityInUse: "This profile is already in use by another DSH process, or a previous run ended abruptly. Close the other process; if none is running, remove {file} from the identity directory (offline recovery).",
+    startupIndeterminate: "The identity directory needs offline reconciliation: finish or discard the pending write before starting again.",
+    startupFailed: "Remote could not start: {message}",
     dropTitle: "Connection lost",
     dropBody: "The session with {name} closed unexpectedly. Work running on the Host is not lost.",
     dropReconnect: "Connect again",
@@ -1985,6 +1988,9 @@ Minimum version required to store current data is: ` + bestVersion + `.
     diagnosticsCopied: "\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F\u3002",
     diagnosticsSelect: "\u8BF7\u624B\u52A8\u9009\u62E9\u4E0B\u9762\u7684\u6587\u672C\u5E76\u590D\u5236\u3002",
     diagnosticsFailed: "\u65E0\u6CD5\u6536\u96C6\u8BCA\u65AD\u4FE1\u606F\uFF0C\u8BF7\u91CD\u8BD5\u3002",
+    startupIdentityInUse: "\u6B64\u914D\u7F6E\u6587\u4EF6\u5DF2\u88AB\u53E6\u4E00\u4E2A DSH \u8FDB\u7A0B\u5360\u7528\uFF0C\u6216\u4E0A\u4E00\u6B21\u8FD0\u884C\u5F02\u5E38\u7ED3\u675F\u3002\u8BF7\u5173\u95ED\u53E6\u4E00\u4E2A\u8FDB\u7A0B\uFF1B\u82E5\u6CA1\u6709\uFF0C\u8BF7\u4ECE\u8EAB\u4EFD\u76EE\u5F55\u5220\u9664 {file}\uFF08\u79BB\u7EBF\u6062\u590D\uFF09\u3002",
+    startupIndeterminate: "\u8EAB\u4EFD\u76EE\u5F55\u9700\u8981\u79BB\u7EBF\u6838\u5BF9\uFF1A\u8BF7\u5148\u5B8C\u6210\u6216\u653E\u5F03\u5F85\u5904\u7406\u7684\u5199\u5165\uFF0C\u518D\u91CD\u65B0\u542F\u52A8\u3002",
+    startupFailed: "Remote \u65E0\u6CD5\u542F\u52A8\uFF1A{message}",
     dropTitle: "\u8FDE\u63A5\u5DF2\u4E2D\u65AD",
     dropBody: "\u4E0E {name} \u7684\u4F1A\u8BDD\u610F\u5916\u7ED3\u675F\u3002\u4E3B\u673A\u4E0A\u6B63\u5728\u8FD0\u884C\u7684\u5DE5\u4F5C\u4E0D\u4F1A\u4E22\u5931\u3002",
     dropReconnect: "\u91CD\u65B0\u8FDE\u63A5",
@@ -4048,7 +4054,16 @@ Minimum version required to store current data is: ` + bestVersion + `.
             ))
           )
         ) : null
-      ) : null, listedHosts = connectingHost === void 0 ? devices : [connectingHost], connectedTargetId = status?.connected === !0 ? status.connectedTargetDeviceId : void 0, connectedDevice = connectedTargetId === void 0 ? void 0 : listedHosts.find((device) => device.deviceId === connectedTargetId) ?? (selectedHost?.deviceId === connectedTargetId ? selectedHost : void 0), layerDevice = pickLayerDevice({ selected: selectedHost, failed: failedHost, connecting: connectingHost, connected: connectedDevice }), layerStates = connectionLayers({ needsAuthorization, device: layerDevice, connectedTargetDeviceId: connectedTargetId }), droppedDeviceId = status?.lastDrop?.deviceId, droppedHost = droppedDeviceId === void 0 ? void 0 : listedHosts.find((device) => device.deviceId === droppedDeviceId), reconnect = status?.reconnect, dropBar = droppedDeviceId === void 0 || failedHost !== void 0 || status?.connected === !0 ? null : React.createElement(
+      ) : null, listedHosts = connectingHost === void 0 ? devices : [connectingHost], connectedTargetId = status?.connected === !0 ? status.connectedTargetDeviceId : void 0, connectedDevice = connectedTargetId === void 0 ? void 0 : listedHosts.find((device) => device.deviceId === connectedTargetId) ?? (selectedHost?.deviceId === connectedTargetId ? selectedHost : void 0), layerDevice = pickLayerDevice({ selected: selectedHost, failed: failedHost, connecting: connectingHost, connected: connectedDevice }), layerStates = connectionLayers({ needsAuthorization, device: layerDevice, connectedTargetDeviceId: connectedTargetId }), identityMissing = status !== void 0 && status.mode === "local" && status.available !== !0 && status.serverUrl !== void 0 && status.host?.deviceId === void 0 && status.deviceId === void 0, startupError = status?.startupError ?? (identityMissing ? { code: "IDENTITY_UNAVAILABLE", message: "" } : void 0), startupBar = startupError === void 0 ? null : React.createElement(
+        "div",
+        { className: "dshRemoteConnectBar isDrop", role: "alert" },
+        React.createElement(
+          "div",
+          { className: "dshRemoteConnectText" },
+          React.createElement("strong", null, t("startupFailed", { message: "" }).split(":")[0]),
+          React.createElement("span", null, startupError.code === "IDENTITY_UNAVAILABLE" ? t("startupIdentityInUse", { file: ".identity-owner" }) : startupError.code === "IDENTITY_IN_USE" ? t("startupIdentityInUse", { file: ".identity-owner" }) : startupError.code === "INDETERMINATE" ? t("startupIndeterminate") : t("startupFailed", { message: startupError.message }))
+        )
+      ), droppedDeviceId = status?.lastDrop?.deviceId, droppedHost = droppedDeviceId === void 0 ? void 0 : listedHosts.find((device) => device.deviceId === droppedDeviceId), reconnect = status?.reconnect, dropBar = droppedDeviceId === void 0 || failedHost !== void 0 || status?.connected === !0 ? null : React.createElement(
         "div",
         { className: "dshRemoteConnectBar isDrop", role: "status" },
         React.createElement(
@@ -4163,6 +4178,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
             "main",
             { className: "dshRemotePageBody" },
             // Account/trust/transport stay visible even before sign-in succeeds.
+            startupBar,
             layerRow,
             dropBar,
             status?.mode === "remote" ? React.createElement("button", {

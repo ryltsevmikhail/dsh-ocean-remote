@@ -65,6 +65,7 @@ export class PluginControlRuntime {
       client: ClientModeRuntime | undefined
       host: HostAuthorizationControl
     }>,
+    private readonly startupFailure?: () => unknown,
   ) {}
 
   register(connection: HostConnectionHandle, webServer?: HostWebServerLike): () => Promise<void> {
@@ -167,7 +168,15 @@ export class PluginControlRuntime {
         this.host.reconnectHost()
         return ok(this.hostOnlyStatus())
       }
-      if (this.client !== undefined) return this.client.handleControl(endpoint, payload, signal)
+      if (this.client !== undefined) {
+        const result = await this.client.handleControl(endpoint, payload, signal)
+        // A failed startup must stay explainable even though the Client owns 'status'.
+        if (endpoint !== 'status') return result
+        const startup = this.startupStatus()
+        if (startup.startupError === undefined) return result
+        if (!result.ok) return result
+        return { ok: true, value: { ...(result.value as Record<string, unknown> | undefined ?? {}), ...startup } }
+      }
 
       if (endpoint === 'status') return ok(this.hostOnlyStatus())
       if (endpoint === 'devices') return ok([])
@@ -556,6 +565,15 @@ export class PluginControlRuntime {
   }
 
   /** Client-role status lives in the remote runtime; keep this view conservative. */
+  /** Reported when the plugin activated but could not acquire its identity. */
+  private startupStatus(): Record<string, unknown> {
+    const failure = this.startupFailure?.()
+    if (failure === undefined) return {}
+    const code = typeof (failure as { code?: unknown })?.code === 'string' ? String((failure as { code: string }).code) : 'STARTUP_FAILED'
+    const message = failure instanceof Error ? failure.message.slice(0, 200) : 'Remote identity is unavailable.'
+    return { startupError: { code, message } }
+  }
+
   private clientStatus(): Record<string, unknown> {
     const view = this.client
     if (view === undefined) return {}
@@ -576,6 +594,7 @@ export class PluginControlRuntime {
   private hostOnlyStatus(): Record<string, unknown> {
     const host = this.host?.hostStatus()
     return {
+      ...this.startupStatus(),
       mode: 'local',
       available: host?.online === true,
       deviceName: hostname(),

@@ -38617,13 +38617,14 @@ function isRecord19(value) {
 
 // src/control-runtime.ts
 var PluginControlRuntime = class {
-  constructor(config, identityDirectory, settings, client, host, switchServer) {
+  constructor(config, identityDirectory, settings, client, host, switchServer, startupFailure) {
     this.config = config;
     this.identityDirectory = identityDirectory;
     this.settings = settings;
     this.client = client;
     this.host = host;
     this.switchServer = switchServer;
+    this.startupFailure = startupFailure;
   }
   logoutFlight;
   serverSwitchFlight;
@@ -38735,7 +38736,14 @@ var PluginControlRuntime = class {
         this.host.reconnectHost();
         return ok3(this.hostOnlyStatus());
       }
-      if (this.client !== void 0) return this.client.handleControl(endpoint, payload, signal);
+      if (this.client !== void 0) {
+        const result = await this.client.handleControl(endpoint, payload, signal);
+        if (endpoint !== "status") return result;
+        const startup = this.startupStatus();
+        if (startup.startupError === void 0) return result;
+        if (!result.ok) return result;
+        return { ok: true, value: { ...result.value ?? {}, ...startup } };
+      }
       if (endpoint === "status") return ok3(this.hostOnlyStatus());
       if (endpoint === "devices") return ok3([]);
       if (endpoint === "host.account.login") {
@@ -39087,6 +39095,14 @@ var PluginControlRuntime = class {
     }) };
   }
   /** Client-role status lives in the remote runtime; keep this view conservative. */
+  /** Reported when the plugin activated but could not acquire its identity. */
+  startupStatus() {
+    const failure4 = this.startupFailure?.();
+    if (failure4 === void 0) return {};
+    const code = typeof failure4?.code === "string" ? String(failure4.code) : "STARTUP_FAILED";
+    const message = failure4 instanceof Error ? failure4.message.slice(0, 200) : "Remote identity is unavailable.";
+    return { startupError: { code, message } };
+  }
   clientStatus() {
     const view = this.client;
     if (view === void 0) return {};
@@ -39106,6 +39122,7 @@ var PluginControlRuntime = class {
   hostOnlyStatus() {
     const host = this.host?.hostStatus();
     return {
+      ...this.startupStatus(),
       mode: "local",
       available: host?.online === true,
       deviceName: hostname2(),
@@ -43976,7 +43993,16 @@ async function activate(ctx, readConfig, entryId, tuiBinding) {
     replacement = operation();
     return replacement;
   };
-  const controlRuntime = connection === void 0 ? void 0 : new PluginControlRuntime(config, defaultIdentityDirectory, settingsBinding, clientRuntime, runtime, replaceServer);
+  let startupFailure;
+  const controlRuntime = connection === void 0 ? void 0 : new PluginControlRuntime(
+    config,
+    defaultIdentityDirectory,
+    settingsBinding,
+    clientRuntime,
+    runtime,
+    replaceServer,
+    () => startupFailure
+  );
   ctx.provide("dshRemote", runtime);
   if (clientRuntime !== void 0) ctx.provide("dshRemoteClient", clientRuntime);
   let tuiTarget = { runtime, config };
@@ -44000,11 +44026,14 @@ async function activate(ctx, readConfig, entryId, tuiBinding) {
       })();
       await startup;
     } catch (error) {
+      startupFailure = error;
+      logger.error("remote plugin started without a usable identity", {
+        code: error?.code,
+        reason: error instanceof Error ? error.message.slice(0, 200) : "unknown"
+      });
       if (tuiBinding?.target === tuiTarget) tuiBinding.target = void 0;
-      await disposeControl?.();
       await clientRuntime?.close();
       await runtime.close();
-      throw error;
     }
     return async () => {
       closed = true;
