@@ -12,13 +12,16 @@
     --radius:12px; --gap:16px;
   }
   *{box-sizing:border-box}
+  .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  .host__name{font-weight:600}
   body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,"Segoe UI",Roboto,sans-serif}
   .stage{display:flex;gap:24px;padding:24px;align-items:flex-start;flex-wrap:wrap}
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;width:640px}
-  .card--wide{width:760px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;width:620px}
+  .card--wide{width:700px}
   .card__head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);gap:12px}
   .card__title{margin:0;font-weight:600;font-size:16px}
   .card__close{background:transparent;border:0;color:var(--muted);font-size:18px;cursor:pointer;border-radius:6px}
+  .card__close:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .card__body{padding:20px;display:flex;flex-direction:column;gap:var(--gap)}
   .section-title{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0}
   .field{display:flex;flex-direction:column;gap:6px;margin:0}
@@ -41,6 +44,7 @@
   .notice strong{display:block;color:var(--ink);margin-bottom:2px}
   .meta{display:grid;grid-template-columns:max-content 1fr;gap:6px 16px;font-size:13px;color:var(--muted);margin:0}
   .meta dt{color:var(--muted)} .meta dd{margin:0;color:var(--ink);overflow-wrap:anywhere}
+  .table-scroll{overflow-x:auto;max-width:100%}
   table{width:100%;border-collapse:collapse;font-size:13.5px}
   caption{text-align:left;color:var(--muted);font-size:12.5px;padding-bottom:8px}
   th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
@@ -49,15 +53,12 @@
   .pill{font-size:12px;padding:1px 8px;border-radius:999px;border:1px solid var(--border);color:var(--muted)}
   .pill--ok{color:var(--success);border-color:color-mix(in srgb,var(--success) 45%,transparent)}
   .pill--off{color:var(--muted)}
-  .empty{border:1px dashed var(--border);border-radius:10px;padding:18px;text-align:center;color:var(--muted);font-size:13px}
-  .error{border:1px solid color-mix(in srgb,var(--danger) 45%,transparent);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--danger)}
   .footer{display:flex;justify-content:space-between;gap:12px;padding:12px 20px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);flex-wrap:wrap}
   @media (max-width:700px){
     .stage{padding:12px}
     .card,.card--wide{width:100%}
     .card__body{padding:14px;gap:12px}
     .grid2{grid-template-columns:1fr}
-    .table-scroll{overflow-x:auto}
     th,td{white-space:normal}
   }
 </style>
@@ -67,14 +68,15 @@
   <section class="card" aria-labelledby="settings-title">
     <header class="card__head">
       <h2 class="card__title" id="settings-title">Настройка Remote</h2>
-      <button class="card__close" aria-label="Закрыть настройку Remote">×</button>
+      <button class="card__close" aria-expanded="true" aria-label="Свернуть настройку Remote">⌃</button>
     </header>
     <div class="card__body">
       <div class="grid2">
         <p class="field"><label for="role" class="hint">Роль</label><select id="role"><option>Host</option><option selected>Client</option></select></p>
-        <p class="field"><label for="server" class="hint">Сервер</label><input id="server" value="https://ocean.example.ts.net" readonly></p>
+        <p class="field"><label for="server" class="hint">Сервер</label><input id="server" value="https://ocean.example.ts.net"></p>
       </div>
-      <p class="hint">Источник: профиль (overlay) — запись из интерфейса отклоняется. Режим применения: перезапуск.</p>
+      <p class="field"><label for="hostname" class="hint">Имя хоста</label><input id="hostname" value="ocean-stage5-host"></p>
+      <p class="hint">Источник значения: профиль профиля (без overlay). Режим применения: перезапуск.</p>
 
       <div class="switch-row">
         <div>
@@ -93,9 +95,16 @@
 
       <h3 class="section-title">Не входит в поддержку релиза</h3>
       <div class="switch-row">
-        <div><div class="host__name">Удалённый терминал</div><p class="hint">Выключен. Включается только явно в конфигурации профиля.</p></div>
+        <div><div class="host__name">Удалённый терминал</div><p class="hint">Выключен по умолчанию. Включается переключателем здесь или в конфигурации профиля; не входит в поддержку релиза.</p></div>
         <span class="switch" role="switch" aria-checked="false" aria-label="Удалённый терминал"></span>
       </div>
+
+      <h3 class="section-title">Предпросмотр портов</h3>
+      <div class="row"><input id="ports" value="3000, 5173" style="max-width:220px" aria-label="Порты предпросмотра"><button class="btn">Сохранить</button></div>
+      <p class="hint">Порты, к которым разрешён доступ с Client. Пустой список — доступ закрыт.</p>
+
+      <h3 class="section-title">ACP-бэкенды</h3>
+      <p class="hint">Выключены. Список бэкендов приходит из конфигурации профиля; в интерфейсе можно только включить конкретный.</p>
 
       <h3 class="section-title">Диагностика</h3>
       <div class="row">
@@ -107,7 +116,6 @@
       <dl class="meta">
         <dt>Аккаунт</dt><dd>owner@example.com</dd>
         <dt>Device ID</dt><dd>01a154a4-a209-7e96-837e-2233dcacfd85</dd>
-        <dt>Версия плагина</dt><dd>0.5.13</dd>
       </dl>
     </div>
     <footer class="footer"><span>Секреты в этой карточке не показываются</span></footer>
@@ -116,27 +124,28 @@
   <section class="card card--wide" aria-labelledby="ocean-title">
     <header class="card__head">
       <h2 class="card__title" id="ocean-title">Ваши устройства</h2>
-      <button class="btn">Обновить</button>
+      <span class="row"><button class="btn">Обновить</button><button class="btn">Выйти</button></span>
     </header>
     <div class="card__body">
-      <p class="hint">Аккаунт: owner@example.com · адрес подключения: https://ocean.example.ts.net</p>
-      <div class="table-scroll">
+      <p class="hint">Аккаунт: owner@example.com</p>
+      <p class="hint">Адрес подключения: <code>https://ocean.example.ts.net</code> — укажите его в плагине DSH на хосте и клиенте.</p>
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Список устройств">
         <table>
           <caption>2 из 3 устройств онлайн</caption>
-          <thead><tr><th>Имя</th><th>Статус</th><th>Роль</th><th>Система</th><th>Плагин</th><th>DSH</th><th><span class="visually-hidden">Действия</span></th></tr></thead>
+          <thead><tr><th scope="col">Имя</th><th scope="col">Статус</th><th scope="col">Роль</th><th scope="col">Система</th><th scope="col">Плагин</th><th scope="col">DSH</th><th scope="col"><span class="visually-hidden">Действия</span></th></tr></thead>
           <tbody>
             <tr>
-              <td class="name">ocean-stage5-host</td><td><span class="pill pill--ok">Онлайн</span></td><td>Хост</td>
+              <th scope="row" class="name">ocean-stage5-host</td><td><span class="pill pill--ok">Онлайн</span></td><td>Хост</td>
               <td>linux</td><td>0.5.13</td><td>0.2.0-rc.2</td>
               <td><button class="btn btn--danger" aria-label="Отозвать устройство ocean-stage5-host">Отозвать</button></td>
             </tr>
             <tr>
-              <td class="name">laptop</td><td><span class="pill pill--ok">Онлайн</span></td><td>Клиент</td>
+              <th scope="row" class="name">laptop</td><td><span class="pill pill--ok">Онлайн</span></td><td>Клиент</td>
               <td>linux</td><td>0.5.13</td><td>—</td>
               <td><button class="btn btn--danger" aria-label="Отозвать устройство laptop">Отозвать</button></td>
             </tr>
             <tr>
-              <td class="name">old-surface</td><td><span class="pill pill--off">Офлайн</span></td><td>Клиент</td>
+              <th scope="row" class="name">old-surface</td><td><span class="pill pill--off">Офлайн</span></td><td>Клиент</td>
               <td>win32</td><td>0.5.11</td><td>—</td>
               <td><button class="btn btn--danger" aria-label="Отозвать устройство old-surface">Отозвать</button></td>
             </tr>
