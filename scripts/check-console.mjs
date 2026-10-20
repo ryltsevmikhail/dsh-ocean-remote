@@ -54,17 +54,35 @@ const origin = `http://127.0.0.1:${port}`
 const dataDirectory = await mkdtemp(join(tmpdir(), 'ocean-console-'))
 const stateFile = join(dataDirectory, 'state.json')
 const serverPath = new URL('../apps/server/dist/server.js', import.meta.url).pathname
-const server = spawn(process.execPath, ['--input-type=module', '-e', `
+let server
+let stopped = false
+const stopServer = async () => {
+  if (stopped || server === undefined) return
+  stopped = true
+  const exited = new Promise(resolve => server.once('exit', resolve))
+  server.kill('SIGTERM')
+  const timer = setTimeout(() => { server.kill('SIGKILL'); resolve() }, 5_000)
+  await exited
+  clearTimeout(timer)
+}
+server = spawn(process.execPath, ['--input-type=module', '-e', `
   import { createRemoteServer } from ${JSON.stringify(pathToFileURL(serverPath).href)}
   const app = createRemoteServer({ account: ${JSON.stringify(ACCOUNT)}, password: ${JSON.stringify(PASSWORD)}, dataFile: ${JSON.stringify(stateFile)}, publicUrl: ${JSON.stringify(origin)} })
   app.server.listen(${port}, '127.0.0.1', () => console.log('ready'))
   process.on('SIGTERM', () => { void app.close().then(() => process.exit(0)) })
 `], { stdio: ['ignore', 'pipe', 'pipe'] })
-await new Promise((resolve, reject) => {
-  const timer = setTimeout(() => reject(new Error('server did not start')), 30_000)
-  server.stdout.on('data', chunk => { if (String(chunk).includes('ready')) { clearTimeout(timer); resolve() } })
-  server.once('exit', code => reject(new Error(`server exited early (${code})`)))
-})
+try {
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('server did not start')), 30_000)
+    server.stdout.on('data', chunk => { if (String(chunk).includes('ready')) { clearTimeout(timer); resolve() } })
+    server.once('exit', code => reject(new Error(`server exited early (${code})`)))
+  })
+} catch (error) {
+  // Nothing must survive a failed start: no child process, no temp directory.
+  await stopServer()
+  await rm(dataDirectory, { recursive: true, force: true })
+  throw error
+}
 
 const results = {}
 let browser
@@ -106,15 +124,22 @@ try {
       const body = await response.json()
       return { deviceId, accessToken: body.accessToken, name }
     }
-    return { online: await register('console-check-online'), offline: await register('console-check-offline') }
+    // Register the offline device first: the UI must still list the online one on top.
+    const offline = await register('console-check-offline')
+    const online = await register('console-check-online')
+    return { online, offline }
   })
   await page.getByRole('button', { name: 'Обновить', exact: true }).click()
   await page.getByText('console-check-online', { exact: true }).waitFor({ timeout: 20_000 })
   results.deviceListed = true
+  results.noneOnlineBeforeSocket = (await page.locator('.device-status.online').count()) === 0
+  results.captionBeforeSocket = await page.locator('table caption').innerText()
 
   // Presence is derived from an open control socket, so open one like a real plugin would.
   const presence = await page.evaluate(async device => {
-    const socket = new WebSocket(`${location.origin.replace('http', 'ws')}/ws/v1/connect`)
+    const endpoint = new URL('/ws/v1/connect', location.href)
+    endpoint.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const socket = new WebSocket(endpoint.href)
     const frame = { v: 1, id: crypto.randomUUID(), type: 'hello', timestamp: Date.now(), payload: {
       role: 'host', deviceId: device.deviceId, accessToken: device.accessToken, protocols: [1],
       capabilities: ['transport.relay'], clientVersion: '0.5.13',
@@ -138,6 +163,7 @@ try {
   await page.waitForFunction(() => document.querySelectorAll('.device-status.online').length === 1, null, { timeout: 20_000 })
   results.onlinePresence = true
   results.caption = await page.locator('table caption').innerText()
+  results.captionCorrect = results.caption.trim() === '1 из 2 устройств онлайн'
   results.onlineRowFirst = (await page.locator('table tbody tr').first().innerText()).includes('console-check-online')
   results.offlineRowShown = (await page.locator('table tbody tr').count()) === 2
 
@@ -159,7 +185,7 @@ try {
   await context.close()
 } finally {
   if (browser !== undefined) await browser.close().catch(() => undefined)
-  server.kill('SIGTERM')
+  await stopServer()
   await rm(dataDirectory, { recursive: true, force: true })
 }
 
@@ -171,6 +197,9 @@ if (results.helloAck !== true) failures.push('the control socket did not answer 
 if (results.onlinePresence !== true) failures.push('a device with an open control socket was not shown online')
 if (results.onlineRowFirst !== true) failures.push('online devices are not sorted first')
 if (results.offlineRowShown !== true) failures.push('the offline device disappeared from the list')
+if (results.noneOnlineBeforeSocket !== true) failures.push('a device was shown online before any socket opened')
+if (results.captionBeforeSocket.trim() !== '0 из 2 устройств онлайн') failures.push(`caption before socket: ${results.captionBeforeSocket}`)
+if (results.captionCorrect !== true) failures.push(`caption after socket: ${results.caption}`)
 if (results.revoked !== true) failures.push('revoked device stayed in the server list')
 if (results.logoutReturnedToLogin !== true) failures.push('logout did not return to the login screen')
 if (results.meAfterLogout !== 401) failures.push(`session survived logout (${results.meAfterLogout})`)
