@@ -91,7 +91,7 @@ const TEXT = [
   ['success on page', 'success', 'page', 4.5],
   ['warning on surface', 'warning', 'surface', 4.5],
   ['danger on surface', 'danger', 'surface', 4.5],
-  ['danger on wash', 'danger', 'wash', 4.5],
+  ['danger on error wash', 'danger', 'error-wash', 4.5],
 ]
 // Non-text pairs (WCAG 1.4.11): interactive boundaries and the focus ring need 3:1.
 const NON_TEXT = [

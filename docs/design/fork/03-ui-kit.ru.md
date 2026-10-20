@@ -6,7 +6,9 @@
 
 Две группы: **существующие** (уже используются в коде — имена сверены с `packages/plugin/src/client/shell.ts` и `apps/server/web/src/ocean.css`) и **предлагаемые** (вводятся на шаге 1 плана, помечены явно).
 
-**Шаг 1 выполнен.** Плагин больше не обращается к native-алиасам напрямую: компоненты используют семантические имена `--dshRemoteSurface / Surface2 / Surface3 / Ink / InkMuted / InkTertiary / Border / BorderStrong / Accent / Hover / Success / Warning / Danger / Error / Mono`, а слой `:root` в том же файле сопоставляет их с `--dsw-alias-*`. В консоли Ocean появились `--success`, `--warning`, `--danger`, и на них переведены сообщения об ошибках и статус «Онлайн». Контраст проверяется: 36 пар в двух темах.
+**Шаг 1 выполнен.** Все компоненты плагина используют семантические имена (`--dshRemoteSurface / Surface2 / Surface3 / SurfaceOnModule / Mask / Ink / InkMuted / InkTertiary / InkDimmed / Border / BorderSubtle / BorderStrong / BorderFaint / Accent / Hover / Success / Warning / Danger / Error / Mono`), а слой токенов в том же файле сопоставляет их с `--dsw-alias-*`.
+
+**Важно:** слой объявлен на `body`, а не на `:root`: native DSH определяет свои алиасы именно на `body` (и на `body[data-ds-dark-theme]` для тёмной темы). На `html` этих переменных нет, поэтому токены там оказались бы пустыми — со сбросом всех цветов и фокусных рамок. В консоли Ocean появились `--success`, `--warning`, `--danger`, и на них переведены сообщения об ошибках и статус «Онлайн». Контраст проверяется: 36 пар в двух темах.
 
 | Смысл | Плагин: существующий токен | Смысл | Ocean: существующий токен |
 | --- | --- | --- | --- |

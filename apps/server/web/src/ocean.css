@@ -9,6 +9,8 @@
   --accent: #4160ed; --button: #4160ed; --wash: #f1f4ff;
   /* Semantic states (design step 1): one place to adjust, contrast is checked. */
   --success: #276a3c; --warning: #825306; --danger: #a73a32;
+  /* Error surfaces: tinted background and border, no hardcoded pairs. */
+  --error-wash: #fff5f2; --error-border: #edc3ba;
 }
 * { box-sizing: border-box; }
 body { margin: 0; }
@@ -52,7 +54,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 h2:focus { outline: none; }
 h2:focus-visible { outline: 2px solid var(--accent); }
-.error { border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); border-radius: 9px; background: var(--wash); padding: 12px 16px; color: var(--danger); font-size: 13px; margin: 0 0 24px; }
+.error { border: 1px solid var(--error-border); border-radius: 9px; background: var(--error-wash); padding: 12px 16px; color: var(--danger); font-size: 13px; margin: 0 0 24px; }
 footer { padding: 20px 0 26px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 32px; align-items: flex-start; }
 .footer-links { display: flex; flex-wrap: wrap; gap: 14px; }
 .footer-links a { font-size: 11px; text-decoration: none; white-space: nowrap; }
@@ -103,8 +105,8 @@ tbody th { font-weight: 600; }
   .actions > div { width: 100%; }
 }
 @media (prefers-color-scheme: dark) {
-  :root { background: #212327; color: #e5e5e5; color-scheme: dark; --surface: #292b30; --ink: #f0f0f0; --muted: #a6a8b0; --border: #3d3f46; --border-strong: #9aa0a6; --accent: #8a9bff; --wash: #303447; --success: #86d6b2; --warning: #d89614; --danger: #f5c4b9; }
-  .error { color: var(--danger); background: #382a29; border-color: #6c4841; }
+  :root { background: #212327; color: #e5e5e5; color-scheme: dark; --surface: #292b30; --ink: #f0f0f0; --muted: #a6a8b0; --border: #3d3f46; --border-strong: #9aa0a6; --accent: #8a9bff; --wash: #303447; --success: #86d6b2; --warning: #d89614; --danger: #f5c4b9; --error-wash: #382a29; --error-border: #6c4841; }
+  .error { color: var(--danger); background: var(--error-wash); border-color: var(--error-border); }
   .device-status.online { color: var(--success); }
 }
 
