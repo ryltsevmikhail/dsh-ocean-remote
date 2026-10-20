@@ -70,7 +70,7 @@
 
 - [Аудит](docs/audit/README.md) — что реально работает.
 - [Спецификации](docs/specs/README.md) — план этапов.
-- [Установка](docs/fork-install.ru.md) и [приёмка чистой установки](docs/install-acceptance.ru.md), [ручное доверие](docs/manual-peer-trust.ru.md), [приёмка удалённой сессии](docs/session-acceptance.ru.md), [эксплуатация](docs/operations.ru.md), [поведение сервера](docs/server-behaviour.ru.md), [дизайн форка](docs/design/fork/README.ru.md).
+- [Установка](docs/fork-install.ru.md) и [приёмка чистой установки](docs/install-acceptance.ru.md), [ручное доверие](docs/manual-peer-trust.ru.md), [приёмка удалённой сессии](docs/session-acceptance.ru.md), [эксплуатация](docs/operations.ru.md), [поведение сервера](docs/server-behaviour.ru.md), [проверка чистой копии](docs/release-check.ru.md), [дизайн форка](docs/design/fork/README.ru.md).
 - [Свой сервер: Tailscale](docs/tailnet-ocean.ru.md), [публичный домен](docs/self-host-ocean.ru.md).
 - [Лицензии](docs/license-review.ru.md), [индекс документации](docs/README.md).
 
