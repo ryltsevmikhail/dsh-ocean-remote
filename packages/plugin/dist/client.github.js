@@ -2660,6 +2660,15 @@ Minimum version required to store current data is: ` + bestVersion + `.
     }
   }
 
+  // src/client/peer-trust-model.ts
+  var TRUST_PENDING_HINT = "\u041E\u0436\u0438\u0434\u0430\u044E\u0449\u0438\u0435 \u0437\u0430\u043F\u0440\u043E\u0441\u044B: {count}. \u041A\u0430\u0436\u0434\u044B\u0439 \u0434\u0435\u0439\u0441\u0442\u0432\u0443\u0435\u0442 \u0434\u043E 5 \u043C\u0438\u043D\u0443\u0442; \u0441\u0440\u043E\u043A \u043F\u0440\u043E\u0432\u0435\u0440\u044F\u0435\u0442 \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u0430\u044F \u0441\u043B\u0443\u0436\u0431\u0430, \u0430 \u043D\u0435 \u0447\u0430\u0441\u044B \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430. \u0418\u0437\u043C\u0435\u043D\u0438\u0432\u0448\u0438\u0439\u0441\u044F \u0438\u0437\u0432\u0435\u0441\u0442\u043D\u044B\u0439 \u043A\u043B\u044E\u0447 \u043D\u0435\u043B\u044C\u0437\u044F \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044C \u0437\u0434\u0435\u0441\u044C.", TRUST_LOADING_HINT = "\u0421\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u0435 \u0434\u043E\u0432\u0435\u0440\u0438\u044F \u0437\u0430\u0433\u0440\u0443\u0436\u0430\u0435\u0442\u0441\u044F\u2026", TRUST_NO_SAVED_KEYS = "\u0421\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0445 \u043A\u043B\u044E\u0447\u0435\u0439 \u043D\u0435\u0442.";
+  function pendingHint(view) {
+    return view === void 0 ? TRUST_LOADING_HINT : TRUST_PENDING_HINT.replace("{count}", String(view.pending.length));
+  }
+  function showsNoSavedKeys(view) {
+    return view !== void 0 && view.available === !0 && view.trusted.length === 0;
+  }
+
   // src/client/peer-trust-panel.ts
   var fullSha256 = /^[0-9A-F]{64}$/;
   function createPeerTrustPanel(React) {
@@ -2769,7 +2778,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
             validView?.available ? null : h("p", null, "\u0420\u043E\u043B\u044C \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430."),
             h("p", null, "\u0421\u043E\u0431\u0441\u0442\u0432\u0435\u043D\u043D\u044B\u0439 Device ID: ", h("code", { className: "dshRemoteSha" }, validView?.self?.deviceId ?? "\u2014")),
             h("p", null, "\u0421\u043E\u0431\u0441\u0442\u0432\u0435\u043D\u043D\u044B\u0439 \u043F\u043E\u043B\u043D\u044B\u0439 SHA-256: ", h("code", { className: "dshRemoteSha" }, validView?.self?.fullFingerprint ?? "\u2014")),
-            validView === void 0 ? h("p", null, "\u0421\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u0435 \u0434\u043E\u0432\u0435\u0440\u0438\u044F \u0437\u0430\u0433\u0440\u0443\u0436\u0430\u0435\u0442\u0441\u044F\u2026") : h("p", null, `\u041E\u0436\u0438\u0434\u0430\u044E\u0449\u0438\u0435 \u0437\u0430\u043F\u0440\u043E\u0441\u044B: ${validView.pending.length}. \u041A\u0430\u0436\u0434\u044B\u0439 \u0434\u0435\u0439\u0441\u0442\u0432\u0443\u0435\u0442 \u0434\u043E 5 \u043C\u0438\u043D\u0443\u0442; \u0441\u0440\u043E\u043A \u043F\u0440\u043E\u0432\u0435\u0440\u044F\u0435\u0442 \u043B\u043E\u043A\u0430\u043B\u044C\u043D\u0430\u044F \u0441\u043B\u0443\u0436\u0431\u0430, \u0430 \u043D\u0435 \u0447\u0430\u0441\u044B \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430. \u0418\u0437\u043C\u0435\u043D\u0438\u0432\u0448\u0438\u0439\u0441\u044F \u0438\u0437\u0432\u0435\u0441\u0442\u043D\u044B\u0439 \u043A\u043B\u044E\u0447 \u043D\u0435\u043B\u044C\u0437\u044F \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044C \u0437\u0434\u0435\u0441\u044C.`),
+            h("p", null, pendingHint(validView)),
             ...(validView?.pending ?? []).map((item) => {
               let key = keyOf(role, validView.epochId, item.deviceId, item.generation), draft = drafts[key] ?? { checked: !1, fingerprint: "" }, update = (change) => setDrafts((previous) => ({ ...previous, [key]: { ...previous[key] ?? { checked: !1, fingerprint: "" }, ...change } })), knownChanged = validView.trusted.some((pin) => pin.deviceId === item.deviceId && pin.fullFingerprint !== item.fullFingerprint), disabled = busy || !writable || !validView.available || item.role !== role || item.epochId !== validView.epochId || knownChanged;
               return h(
@@ -2796,7 +2805,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
               );
             }),
             h("h4", null, "\u0421\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0435 \u043A\u043B\u044E\u0447\u0438"),
-            validView?.available === !0 && validView.trusted.length === 0 ? h("p", null, "\u0421\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0445 \u043A\u043B\u044E\u0447\u0435\u0439 \u043D\u0435\u0442.") : null,
+            showsNoSavedKeys(validView) ? h("p", null, TRUST_NO_SAVED_KEYS) : null,
             ...(validView?.trusted ?? []).map((pin) => h(
               "div",
               { key: pin.deviceId },

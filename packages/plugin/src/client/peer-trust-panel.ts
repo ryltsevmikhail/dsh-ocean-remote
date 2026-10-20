@@ -1,4 +1,5 @@
 import type { ClientReact, LocalTrustControl, PeerTrustStatus } from './types.js'
+import { TRUST_NO_SAVED_KEYS, pendingHint, showsNoSavedKeys } from './peer-trust-model.js'
 
 type Draft = { checked: boolean; fingerprint: string }
 const fullSha256 = /^[0-9A-F]{64}$/
@@ -125,9 +126,7 @@ export function createPeerTrustPanel(React: ClientReact) {
           !validView?.available ? h('p', null, 'Роль недоступна.') : null,
           h('p', null, 'Собственный Device ID: ', h('code', { className: 'dshRemoteSha' }, validView?.self?.deviceId ?? '—')),
           h('p', null, 'Собственный полный SHA-256: ', h('code', { className: 'dshRemoteSha' }, validView?.self?.fullFingerprint ?? '—')),
-          validView === undefined
-            ? h('p', null, 'Состояние доверия загружается…')
-            : h('p', null, `Ожидающие запросы: ${validView.pending.length}. Каждый действует до 5 минут; срок проверяет локальная служба, а не часы браузера. Изменившийся известный ключ нельзя подтвердить здесь.`),
+          h('p', null, pendingHint(validView)),
           ...(validView?.pending ?? []).map(item => {
             const key = keyOf(role, validView!.epochId, item.deviceId, item.generation)
             const draft = drafts[key] ?? { checked: false, fingerprint: '' }
@@ -150,7 +149,7 @@ export function createPeerTrustPanel(React: ClientReact) {
               h('button', { type: 'button', disabled: busy || !writable, onClick: () => void mutate(role, item.deviceId, item.generation, item.fullFingerprint, validView!.epochId, false) }, 'Отклонить'))
           }),
           h('h4', null, 'Сохранённые ключи'),
-          validView?.available === true && validView.trusted.length === 0 ? h('p', null, 'Сохранённых ключей нет.') : null,
+          showsNoSavedKeys(validView) ? h('p', null, TRUST_NO_SAVED_KEYS) : null,
           ...(validView?.trusted ?? []).map(pin => h('div', { key: pin.deviceId },
             h('p', null, pin.name, ' — Device ID: ', pin.deviceId, '; платформа: ', pin.platform),
             h('code', { className: 'dshRemoteSha' }, pin.fullFingerprint),
