@@ -1,9 +1,10 @@
-import { mkdtemp, realpath, writeFile, rm, symlink, mkdir, truncate } from 'node:fs/promises'
+import { mkdtemp, realpath, stat, writeFile, rm, symlink, mkdir, truncate } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CodexWorkspaceBridge, CodexWorkspaceState, subprocessTerminalSpawner, type RemoteTerminalProcess, type RemoteTerminalSpawner } from '../src/codex-workspace-bridge.js'
+import { openVerifiedFile } from '../src/workspace-bridge.js'
 
 const signal = new AbortController().signal
 const states: CodexWorkspaceState[] = []
@@ -136,6 +137,35 @@ describe('CodeX workspace and terminal bridge', () => {
         .rejects.toMatchObject({ code: 'CODEX_WORKSPACE_INVALID_PATH' })
     } finally {
       await bridge.closeAll()
+      await rm(base, { recursive: true, force: true })
+    }
+  })
+
+  it('refuses a file that turns into a symlink after the canonical check', async () => {
+    const base = await mkdtemp(join(tmpdir(), 'dsh-toctou-'))
+    const root = join(base, 'ws')
+    await mkdir(root)
+    const outside = join(base, 'secret.txt')
+    await writeFile(outside, 'secret')
+    const inside = join(root, 'inside.txt')
+    await writeFile(inside, 'inside')
+    try {
+      const info = await stat(inside)
+      // Same inode: the verified open succeeds and returns the expected content.
+      const ok = await openVerifiedFile(inside, { dev: info.dev, ino: info.ino })
+      const buf = Buffer.alloc(6)
+      const read = await ok.read(buf, 0, 6, 0)
+      await ok.close()
+      expect(buf.subarray(0, read.bytesRead).toString()).toBe('inside')
+      // A different inode (the file was swapped) is refused instead of read.
+      await expect(openVerifiedFile(inside, { dev: info.dev, ino: info.ino + 1 }))
+        .rejects.toMatchObject({ code: 'WORKSPACE_CHANGED' })
+      // A symlink at the checked path is refused by O_NOFOLLOW.
+      await rm(inside)
+      await symlink(outside, inside)
+      await expect(openVerifiedFile(inside, { dev: info.dev, ino: info.ino }))
+        .rejects.toMatchObject({ code: 'WORKSPACE_PATH_DENIED' })
+    } finally {
       await rm(base, { recursive: true, force: true })
     }
   })

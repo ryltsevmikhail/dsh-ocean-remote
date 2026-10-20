@@ -1,3 +1,4 @@
+import { constants } from 'node:fs'
 import { realpath, lstat, readdir, open, stat, watch } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { RpcError } from './safe-error.js'
@@ -118,7 +119,9 @@ export class WorkspaceBridge {
       if (info.size > MAX_READ_BYTES) throw this.scopeError('WORKSPACE_TOO_LARGE', 'The requested workspace file is too large.')
       const offset = readOffset(args)
       const limit = readLimit(args)
-      const file = await open(target, 'r')
+      // O_NOFOLLOW + inode check close the window between the canonical check and
+      // the read: swapping the file for a symlink now fails instead of leaking a file.
+      const file = await openVerifiedFile(target, info)
       let bytes: Buffer
       try {
         // Bound allocation even if the file grows after stat. One extra byte
@@ -206,6 +209,30 @@ export class WorkspaceBridge {
     } catch { throw this.scopeError('WORKSPACE_PATH_DENIED', 'The requested workspace path is unavailable.') }
   }
 
+}
+
+/**
+ * Opens a file that was just canonicalised and verified, refusing a last-moment
+ * symlink swap (O_NOFOLLOW) and a different inode than the one that was checked.
+ */
+export async function openVerifiedFile(path: string, expected: { dev: number; ino: number }) {
+  let file
+  try {
+    file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW)
+  } catch (error) {
+    // ELOOP: the path became a symlink after the canonical check.
+    throw Object.assign(new RpcError('WORKSPACE_PATH_DENIED', 'The requested workspace path is a symbolic link.'), { cause: error })
+  }
+  try {
+    const info = await file.stat()
+    if (info.dev !== expected.dev || info.ino !== expected.ino) {
+      throw new RpcError('WORKSPACE_CHANGED', 'The workspace file changed while reading it. Retry the request.')
+    }
+    return file
+  } catch (error) {
+    await file.close().catch(() => undefined)
+    throw error
+  }
 }
 
 /** True when a relative path leaves the root; plain `..name` filenames are allowed. */

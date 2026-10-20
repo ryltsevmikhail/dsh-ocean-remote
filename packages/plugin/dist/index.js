@@ -33993,6 +33993,7 @@ var IsolatedAcpClient = class {
 };
 
 // src/workspace-bridge.ts
+import { constants as constants3 } from "node:fs";
 import { realpath as realpath3, lstat as lstat2, readdir as readdir2, open as open2, stat as stat3, watch } from "node:fs/promises";
 import { isAbsolute as isAbsolute4, join as join7, relative as relative2, resolve as resolve3, sep } from "node:path";
 
@@ -34692,7 +34693,7 @@ var WorkspaceBridge = class {
       if (info.size > MAX_READ_BYTES) throw this.scopeError("WORKSPACE_TOO_LARGE", "The requested workspace file is too large.");
       const offset = readOffset(args);
       const limit = readLimit(args);
-      const file = await open2(target2, "r");
+      const file = await openVerifiedFile(target2, info);
       let bytes;
       try {
         const buffer = Buffer.allocUnsafe(info.size + 1);
@@ -34787,6 +34788,24 @@ var WorkspaceBridge = class {
     }
   }
 };
+async function openVerifiedFile(path, expected) {
+  let file;
+  try {
+    file = await open2(path, constants3.O_RDONLY | constants3.O_NOFOLLOW);
+  } catch (error) {
+    throw Object.assign(new RpcError("WORKSPACE_PATH_DENIED", "The requested workspace path is a symbolic link."), { cause: error });
+  }
+  try {
+    const info = await file.stat();
+    if (info.dev !== expected.dev || info.ino !== expected.ino) {
+      throw new RpcError("WORKSPACE_CHANGED", "The workspace file changed while reading it. Retry the request.");
+    }
+    return file;
+  } catch (error) {
+    await file.close().catch(() => void 0);
+    throw error;
+  }
+}
 function escapesRoot(rel) {
   return isAbsolute4(rel) || rel === ".." || rel.startsWith(`..${sep}`);
 }
@@ -35256,7 +35275,7 @@ function agySelectionArgs(catalog, modelId, effort) {
 }
 
 // src/acp/adapters/antigravity/image-store.ts
-import { promises as fs, realpathSync as realpathSync2, constants as constants3 } from "node:fs";
+import { promises as fs, realpathSync as realpathSync2, constants as constants4 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join as join8, basename as basename3 } from "node:path";
 import { createHash as createHash2, randomUUID as randomUUID5 } from "node:crypto";
@@ -35342,7 +35361,7 @@ async function readAgyImage(sessionId, path, root = AGY_IMAGE_ROOT) {
     await privateDirectory2(join8(root, sessionFolder(sessionId)));
     const info = await fs.lstat(path);
     if (!info.isFile() || info.isSymbolicLink() || info.size > 8 * 1024 * 1024 || Date.now() - info.mtimeMs > TTL2) return void 0;
-    const file = await fs.open(path, constants3.O_RDONLY | (constants3.O_NOFOLLOW ?? 0));
+    const file = await fs.open(path, constants4.O_RDONLY | (constants4.O_NOFOLLOW ?? 0));
     try {
       const current = await file.stat();
       if (current.ino !== info.ino || current.dev !== info.dev || current.size !== info.size) return void 0;
@@ -39234,7 +39253,7 @@ function redact(value, key = "") {
 
 // src/workspace-upload.ts
 import { randomUUID as randomUUID7 } from "node:crypto";
-import { constants as constants4 } from "node:fs";
+import { constants as constants5 } from "node:fs";
 import { link, lstat as lstat3, open as open3, realpath as realpath7, stat as stat5, unlink as unlink2 } from "node:fs/promises";
 import { extname, isAbsolute as isAbsolute7, join as join12 } from "node:path";
 var WORKSPACE_UPLOAD_BYTES = 20 * 1024 * 1024;
@@ -39314,7 +39333,7 @@ var WorkspaceUploadHost = class {
     const directory = await stat5(root);
     if (!directory.isDirectory()) throw failure3("UPLOAD_WORKSPACE_UNAVAILABLE");
     const temp = join12(root, `.dsh-upload-${randomUUID7()}.part`);
-    const handle = await open3(temp, constants4.O_CREAT | constants4.O_EXCL | constants4.O_RDWR | (constants4.O_NOFOLLOW ?? 0), 384);
+    const handle = await open3(temp, constants5.O_CREAT | constants5.O_EXCL | constants5.O_RDWR | (constants5.O_NOFOLLOW ?? 0), 384);
     const upload = { ...p, received: 0, touched: Date.now(), root, sourceRoot, dev: directory.dev, ino: directory.ino, temp, handle };
     this.uploads.set(p.uploadId, upload);
     await this.validateRoot(upload);
