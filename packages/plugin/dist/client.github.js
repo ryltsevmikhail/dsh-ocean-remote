@@ -3458,6 +3458,18 @@ Minimum version required to store current data is: ` + bestVersion + `.
     return RemotePluginOptions;
   }
 
+  // src/client/dialog-focus.ts
+  function dialogTabStops(root) {
+    return Array.from(root.querySelectorAll("button, input, select, textarea, a[href], summary, [tabindex]")).filter((item) => {
+      if (item.tabIndex < 0 || item.matches(":disabled") || item.getClientRects().length === 0 || getComputedStyle(item).visibility === "hidden" || item.checkVisibility?.() === !1) return !1;
+      for (let parent = item.parentElement; parent && root.contains(parent); parent = parent.parentElement) {
+        if (parent.tagName !== "DETAILS" || parent.hasAttribute("open")) continue;
+        if (!Array.from(parent.children).find((child) => child.tagName === "SUMMARY")?.contains(item)) return !1;
+      }
+      return !0;
+    });
+  }
+
   // src/client/peer-trust-action.ts
   function createPeerTrustAction(React) {
     let h = React.createElement, PeerTrustPanel = createPeerTrustPanel(React), label = "\u0414\u043E\u0432\u0435\u0440\u0438\u0435 \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432";
@@ -3476,7 +3488,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
           if (event.key === "Escape")
             event.preventDefault(), event.stopPropagation(), close();
           else if (event.key === "Tab") {
-            let items = Array.from(root.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])')).filter((item) => item.tabIndex >= 0 && item.getClientRects().length > 0), first = items[0] ?? closeButton.current, last = items[items.length - 1] ?? first;
+            let items = dialogTabStops(root), first = items[0] ?? closeButton.current, last = items[items.length - 1] ?? first;
             event.shiftKey && (document.activeElement === first || !root.contains(document.activeElement)) ? (event.preventDefault(), last?.focus()) : !event.shiftKey && (document.activeElement === last || !root.contains(document.activeElement)) && (event.preventDefault(), first?.focus());
           }
         }, onFocus = (event) => {
@@ -3550,7 +3562,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
           if (event.key === "Escape")
             event.preventDefault(), event.stopPropagation(), close();
           else if (event.key === "Tab") {
-            let items = Array.from(root.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])')).filter((item) => item.tabIndex >= 0 && item.getClientRects().length > 0), first = items[0] ?? closeButton.current, last = items[items.length - 1] ?? first;
+            let items = dialogTabStops(root), first = items[0] ?? closeButton.current, last = items[items.length - 1] ?? first;
             event.shiftKey && (document.activeElement === first || !root.contains(document.activeElement)) ? (event.preventDefault(), last?.focus()) : !event.shiftKey && (document.activeElement === last || !root.contains(document.activeElement)) && (event.preventDefault(), first?.focus());
           }
         }, onFocus = (event) => {

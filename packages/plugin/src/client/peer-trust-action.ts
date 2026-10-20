@@ -1,3 +1,4 @@
+import { dialogTabStops } from './dialog-focus.js'
 import type { StatusFeed } from '../status-stream.js'
 import { createPeerTrustPanel } from './peer-trust-panel.js'
 import type { ClientReact, LocalTrustControl, RemoteStatus } from './types.js'
@@ -42,8 +43,7 @@ export function createPeerTrustAction(React: ClientReact) {
           event.stopPropagation()
           close()
         } else if (event.key === 'Tab') {
-          const items = Array.from(root.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])'))
-            .filter(item => item.tabIndex >= 0 && item.getClientRects().length > 0)
+          const items = dialogTabStops(root)
           const first = items[0] ?? closeButton.current
           const last = items[items.length - 1] ?? first
           if (event.shiftKey && (document.activeElement === first || !root.contains(document.activeElement))) {
