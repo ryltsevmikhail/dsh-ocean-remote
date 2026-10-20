@@ -171,6 +171,8 @@ try {
         if (report.animated.length > 0) failures.push(`${where}: animation survives reduced motion: ${report.animated.join(' | ')}`)
         if (report.smallTargets.length > 0) failures.push(`${where}: tap targets under 32px: ${report.smallTargets.join(' | ')}`)
         if (writeShots) {
+          // Screenshots must not show the focus ring left by the checks above.
+          await page.evaluate(() => document.activeElement instanceof HTMLElement ? document.activeElement.blur() : undefined)
           await writeFile(new URL(`${file.replace(/\.html$/u, '')}-${viewport.name}.png`, mockups),
             await page.screenshot({ fullPage: true }))
         }
