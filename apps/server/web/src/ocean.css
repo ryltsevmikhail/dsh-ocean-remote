@@ -111,15 +111,14 @@ tbody th { font-weight: 600; }
 }
 
 /* Shared control states (design step 2): inputs, focus, busy and danger actions. */
-input, select, textarea { box-sizing: border-box; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; padding: 9px 10px; min-height: 40px; }
-input:hover:not(:disabled), select:hover:not(:disabled), textarea:hover:not(:disabled) { border-color: var(--ink); }
+form input, form select, form textarea { box-sizing: border-box; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; }
+form input:hover:not(:disabled):not(:focus), form select:hover:not(:disabled):not(:focus), form textarea:hover:not(:disabled):not(:focus) { border-color: var(--ink); }
 input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.login-card input, .login-card select { min-height: 44px; padding: 10px 12px; }
 input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"] { border-color: var(--danger); }
-input:disabled, select:disabled, textarea:disabled, button:disabled { opacity: .55; cursor: default; }
+input:disabled, select:disabled, textarea:disabled { opacity: .55; cursor: not-allowed; }
+button:disabled { cursor: default; }
 [aria-busy="true"] { cursor: progress; }
-button.danger, .device-table button.revoke { border: 1px solid var(--danger); color: var(--danger); background: transparent; }
-button.danger:hover:not(:disabled), .device-table button.revoke:hover:not(:disabled) { background: var(--error-wash); color: var(--danger); border-color: var(--danger); }
-
 /* Owner-only device actions: quiet button that still reads as destructive. */
 .device-table button.revoke{min-height:32px;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:transparent;color:inherit;font:inherit;font-size:13px;cursor:pointer}
 .device-table button.revoke:hover:not(:disabled){border-color:var(--ink);color:var(--ink);background:var(--wash)}
