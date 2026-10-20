@@ -1657,6 +1657,8 @@ Minimum version required to store current data is: ` + bestVersion + `.
     signingOut: "Signing out\u2026",
     hostName: "Host name",
     deviceId: "Device ID",
+    hostDeviceId: "Host Device ID \u2014 connection target",
+    clientDeviceId: "Client Device ID \u2014 outgoing connections",
     serverUrl: "Server URL",
     serverUrlHint: "HTTPS origin used for account authorization and encrypted relay.",
     serverSaved: "Server address saved. Restart DSH to apply it.",
@@ -1967,6 +1969,8 @@ Minimum version required to store current data is: ` + bestVersion + `.
     signingOut: "\u6B63\u5728\u9000\u51FA\u2026",
     hostName: "\u4E3B\u673A\u540D\u79F0",
     deviceId: "\u8BBE\u5907 ID",
+    hostDeviceId: "Host \u8BBE\u5907 ID \u2014 \u8FDE\u63A5\u76EE\u6807",
+    clientDeviceId: "Client \u8BBE\u5907 ID \u2014 \u51FA\u7AD9\u8FDE\u63A5",
     serverUrl: "Server \u5730\u5740",
     serverUrlHint: "\u7528\u4E8E\u8D26\u53F7\u6388\u6743\u548C\u52A0\u5BC6\u4E2D\u7EE7\u7684 HTTPS \u5730\u5740\u3002",
     serverSaved: "Server \u5730\u5740\u5DF2\u4FDD\u5B58\uFF0C\u91CD\u542F DSH \u540E\u751F\u6548\u3002",
@@ -2841,7 +2845,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
   function createRemotePluginOptions(React) {
     let PeerTrustPanel = createPeerTrustPanel(React);
     function RemotePluginOptions(props) {
-      let { t } = props, [open, setOpen] = React.useState(props.view === "page"), [serverUrl, setServerUrl] = React.useState(""), [portsBusy, setPortsBusy] = React.useState(!1), [previewPorts, setPreviewPorts] = React.useState(""), [roleValue, setRoleValue] = React.useState("host"), [roleBusy, setRoleBusy] = React.useState(!1), [hostEmail, setHostEmail] = React.useState(""), [hostPassword, setHostPassword] = React.useState(""), [hostLoginBusy, setHostLoginBusy] = React.useState(!1), [registrationCode, setRegistrationCode] = React.useState(""), [associations, setAssociations] = React.useState({}), [loaded, setLoaded] = React.useState(!1), [writable, setWritable] = React.useState(!1), [busy, setBusy] = React.useState(!1), [terminalEnabled, setTerminalEnabled] = React.useState(!1), [terminalBusy, setTerminalBusy] = React.useState(!1), [acpBackends, setAcpBackends] = React.useState([]), [diagnosticsText, setDiagnosticsText] = React.useState(""), [diagnosticsBusy, setDiagnosticsBusy] = React.useState(!1), [diagnosticsNote, setDiagnosticsNote] = React.useState(""), [acpAvailability, setAcpAvailability] = React.useState({}), [acpChecking, setAcpChecking] = React.useState({}), [acpCheckResults, setAcpCheckResults] = React.useState({}), [addingAcp, setAddingAcp] = React.useState(!1), [acpName, setAcpName] = React.useState(""), [acpCommand, setAcpCommand] = React.useState(""), [acpArguments, setAcpArguments] = React.useState("acp"), [reconnectBusy, setReconnectBusy] = React.useState(!1), [hostStatus, setHostStatus] = React.useState(void 0), [hostName, setHostName] = React.useState(""), [hostDeviceId, setHostDeviceId] = React.useState(""), [notice, setNotice] = React.useState(void 0), [error, setError] = React.useState(void 0), [settingsView, setSettingsView] = React.useState(void 0), associationReadRun = React.useRef(0), idSuffix = React.useRef(`-${Math.random().toString(36).slice(2, 8)}`).current, fieldId = (name) => `dsh-remote-${name}${idSuffix}`, persistedServerUrl = settingsView?.config.serverUrl ?? "", association = roleValue === "client" ? associations.client : associations.host, serverDirty = settingsView !== void 0 && serverUrl !== persistedServerUrl, draftDirty = serverDirty, applyAssociations = (view) => {
+      let { t } = props, [open, setOpen] = React.useState(props.view === "page"), [serverUrl, setServerUrl] = React.useState(""), [portsBusy, setPortsBusy] = React.useState(!1), [previewPorts, setPreviewPorts] = React.useState(""), [roleValue, setRoleValue] = React.useState("host"), [roleBusy, setRoleBusy] = React.useState(!1), [hostEmail, setHostEmail] = React.useState(""), [hostPassword, setHostPassword] = React.useState(""), [hostLoginBusy, setHostLoginBusy] = React.useState(!1), [registrationCode, setRegistrationCode] = React.useState(""), [associations, setAssociations] = React.useState({}), [loaded, setLoaded] = React.useState(!1), [writable, setWritable] = React.useState(!1), [busy, setBusy] = React.useState(!1), [terminalEnabled, setTerminalEnabled] = React.useState(!1), [terminalBusy, setTerminalBusy] = React.useState(!1), [acpBackends, setAcpBackends] = React.useState([]), [diagnosticsText, setDiagnosticsText] = React.useState(""), [diagnosticsBusy, setDiagnosticsBusy] = React.useState(!1), [diagnosticsNote, setDiagnosticsNote] = React.useState(""), [acpAvailability, setAcpAvailability] = React.useState({}), [acpChecking, setAcpChecking] = React.useState({}), [acpCheckResults, setAcpCheckResults] = React.useState({}), [addingAcp, setAddingAcp] = React.useState(!1), [acpName, setAcpName] = React.useState(""), [acpCommand, setAcpCommand] = React.useState(""), [acpArguments, setAcpArguments] = React.useState("acp"), [reconnectBusy, setReconnectBusy] = React.useState(!1), [hostStatus, setHostStatus] = React.useState(void 0), [hostName, setHostName] = React.useState(""), [hostDeviceId, setHostDeviceId] = React.useState(""), [clientDeviceId, setClientDeviceId] = React.useState(""), [notice, setNotice] = React.useState(void 0), [error, setError] = React.useState(void 0), [settingsView, setSettingsView] = React.useState(void 0), associationReadRun = React.useRef(0), idSuffix = React.useRef(`-${Math.random().toString(36).slice(2, 8)}`).current, fieldId = (name) => `dsh-remote-${name}${idSuffix}`, persistedServerUrl = settingsView?.config.serverUrl ?? "", association = roleValue === "client" ? associations.client : associations.host, serverDirty = settingsView !== void 0 && serverUrl !== persistedServerUrl, draftDirty = serverDirty, applyAssociations = (view) => {
         let currentRole = view.config.role === "client" ? "client" : "host";
         setAssociations(view.associations ?? (view.association === void 0 ? {} : { [currentRole]: view.association }));
       }, applyView = (view, updateAssociations = !0) => {
@@ -2852,13 +2856,13 @@ Minimum version required to store current data is: ` + bestVersion + `.
           props.control("status").catch(() => {
           })
         ]);
-        applyView(view, run === associationReadRun.current), setHostStatus(status?.host), setHostName(status?.deviceName ?? ""), setHostDeviceId(status?.host?.deviceId ?? "");
+        applyView(view, run === associationReadRun.current), setHostStatus(status?.host), setHostName(status?.deviceName ?? ""), setHostDeviceId(status?.host?.deviceId ?? ""), setClientDeviceId(status?.identityReady === !0 ? status.deviceId ?? "" : "");
       };
       React.useEffect(() => {
         load().catch((reason) => failWith(reason));
       }, []), React.useEffect(() => {
         let active = !0, authorizationKey, unsubscribe = props.statusFeed.subscribe((status) => {
-          setHostStatus(status.host), setHostName(status.deviceName ?? ""), setHostDeviceId(status.host?.deviceId ?? "");
+          setHostStatus(status.host), setHostName(status.deviceName ?? ""), setHostDeviceId(status.host?.deviceId ?? ""), setClientDeviceId(status.identityReady === !0 ? status.deviceId ?? "" : "");
           let key = JSON.stringify([
             status.serverUrl,
             status.deviceId,
@@ -3286,8 +3290,14 @@ Minimum version required to store current data is: ` + bestVersion + `.
               React.createElement(
                 "div",
                 null,
-                React.createElement("span", null, t("deviceId")),
+                React.createElement("span", null, t("hostDeviceId")),
                 React.createElement("code", null, hostDeviceId || "\u2014")
+              ),
+              React.createElement(
+                "div",
+                null,
+                React.createElement("span", null, t("clientDeviceId")),
+                React.createElement("code", null, clientDeviceId || "\u2014")
               )
             ),
             React.createElement(
@@ -3397,8 +3407,14 @@ Minimum version required to store current data is: ` + bestVersion + `.
               React.createElement(
                 "div",
                 null,
-                React.createElement("span", null, t("deviceId")),
+                React.createElement("span", null, t("hostDeviceId")),
                 React.createElement("code", null, hostDeviceId || "\u2014")
+              ),
+              React.createElement(
+                "div",
+                null,
+                React.createElement("span", null, t("clientDeviceId")),
+                React.createElement("code", null, clientDeviceId || "\u2014")
               )
             ),
             React.createElement(

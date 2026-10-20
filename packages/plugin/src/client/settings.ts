@@ -52,6 +52,7 @@ export function createRemotePluginOptions(React: ClientReact) {
     const [hostStatus, setHostStatus] = React.useState<RemoteStatus['host'] | undefined>(undefined)
     const [hostName, setHostName] = React.useState('')
     const [hostDeviceId, setHostDeviceId] = React.useState('')
+    const [clientDeviceId, setClientDeviceId] = React.useState('')
     const [notice, setNotice] = React.useState<LocalizedMessage | undefined>(undefined)
     const [error, setError] = React.useState<string | undefined>(undefined)
     const [settingsView, setSettingsView] = React.useState<PluginSettingsView | undefined>(undefined)
@@ -91,6 +92,7 @@ export function createRemotePluginOptions(React: ClientReact) {
       setHostStatus(status?.host)
       setHostName(status?.deviceName ?? '')
       setHostDeviceId(status?.host?.deviceId ?? '')
+      setClientDeviceId(status?.identityReady === true ? status.deviceId ?? '' : '')
     }
 
     React.useEffect(() => {
@@ -104,6 +106,7 @@ export function createRemotePluginOptions(React: ClientReact) {
         setHostStatus(status.host)
         setHostName(status.deviceName ?? '')
         setHostDeviceId(status.host?.deviceId ?? '')
+        setClientDeviceId(status.identityReady === true ? status.deviceId ?? '' : '')
         // Either account entry point rotates these identities on sign-out.
         // Refresh both associations on that change, without resetting drafts
         // or fetching settings for ordinary connection/statistics updates.
@@ -487,8 +490,11 @@ export function createRemotePluginOptions(React: ClientReact) {
                   React.createElement('span', null, t('hostName')),
                   React.createElement('strong', null, hostName || '—')),
                 React.createElement('div', null,
-                  React.createElement('span', null, t('deviceId')),
-                  React.createElement('code', null, hostDeviceId || '—'))),
+                  React.createElement('span', null, t('hostDeviceId')),
+                  React.createElement('code', null, hostDeviceId || '—')),
+                React.createElement('div', null,
+                  React.createElement('span', null, t('clientDeviceId')),
+                  React.createElement('code', null, clientDeviceId || '—'))),
               React.createElement('div', { className: 'dshRemoteField' },
                 React.createElement('label', { htmlFor: fieldId('server-url-authorized') }, t('serverUrl')),
                 React.createElement('input', {
@@ -566,8 +572,11 @@ export function createRemotePluginOptions(React: ClientReact) {
                   React.createElement('span', null, t('hostName')),
                   React.createElement('strong', null, hostName || '—')),
                 React.createElement('div', null,
-                  React.createElement('span', null, t('deviceId')),
-                  React.createElement('code', null, hostDeviceId || '—'))),
+                  React.createElement('span', null, t('hostDeviceId')),
+                  React.createElement('code', null, hostDeviceId || '—')),
+                React.createElement('div', null,
+                  React.createElement('span', null, t('clientDeviceId')),
+                  React.createElement('code', null, clientDeviceId || '—'))),
               React.createElement('div', { className: 'dshRemoteField' },
                 React.createElement('label', { htmlFor: fieldId('server-url') }, t('serverUrl')),
                 React.createElement('input', {

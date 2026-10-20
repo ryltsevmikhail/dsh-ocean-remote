@@ -35,6 +35,9 @@ export interface RemoteStatus {
   available: boolean
   controlUnavailable?: boolean
   deviceName?: string
+  /** True only when the Client runtime has an identity; absent in Host-only fallback status. */
+  identityReady?: boolean
+  /** Client ID when identityReady is true; legacy Host-only responses alias the Host ID here. */
   deviceId?: string
   serverUrl?: string
   connected?: boolean
@@ -68,6 +71,7 @@ export interface RemoteStatus {
   network?: RemoteNetworkDetails
   hostAuthorizationAvailable: boolean
   host?: {
+    /** Host identity: the target device ID advertised to connecting Clients. */
     deviceId?: string
     configured: boolean
     online: boolean
