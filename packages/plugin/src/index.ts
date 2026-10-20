@@ -272,7 +272,8 @@ async function activate(
   let replacement: Promise<{ client: ClientModeRuntime | undefined; host: HostPluginRuntime }> | undefined
   const replaceServer = (next: ResolvedConfig) => {
     const operation = async () => {
-      await startup
+      // A previous start may have failed; configuration must still be repairable.
+      await startup?.catch(() => undefined)
       if (closed) throw new Error('Remote plugin is closed')
       // Stop both authorities before loading identities scoped to another Server.
       const shutdown = await Promise.allSettled([clientRuntime?.close(), runtime.close()])
@@ -344,8 +345,16 @@ async function activate(
         reason: error instanceof Error ? error.message.slice(0, 200) : 'unknown',
       })
       if (tuiBinding?.target === tuiTarget) tuiBinding.target = undefined
-      await clientRuntime?.close()
-      await runtime.close()
+      try {
+        await clientRuntime?.close()
+      } catch {
+        // A degraded start must not fail activation on cleanup errors.
+      }
+      try {
+        await runtime.close()
+      } catch {
+        // Same: the control route below is the only channel that can explain the state.
+      }
     }
     return async () => {
       closed = true

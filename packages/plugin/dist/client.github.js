@@ -4054,14 +4054,14 @@ Minimum version required to store current data is: ` + bestVersion + `.
             ))
           )
         ) : null
-      ) : null, listedHosts = connectingHost === void 0 ? devices : [connectingHost], connectedTargetId = status?.connected === !0 ? status.connectedTargetDeviceId : void 0, connectedDevice = connectedTargetId === void 0 ? void 0 : listedHosts.find((device) => device.deviceId === connectedTargetId) ?? (selectedHost?.deviceId === connectedTargetId ? selectedHost : void 0), layerDevice = pickLayerDevice({ selected: selectedHost, failed: failedHost, connecting: connectingHost, connected: connectedDevice }), layerStates = connectionLayers({ needsAuthorization, device: layerDevice, connectedTargetDeviceId: connectedTargetId }), identityMissing = status !== void 0 && status.mode === "local" && status.available !== !0 && status.serverUrl !== void 0 && status.host?.deviceId === void 0 && status.deviceId === void 0, startupError = status?.startupError ?? (identityMissing ? { code: "IDENTITY_UNAVAILABLE", message: "" } : void 0), startupBar = startupError === void 0 ? null : React.createElement(
+      ) : null, listedHosts = connectingHost === void 0 ? devices : [connectingHost], connectedTargetId = status?.connected === !0 ? status.connectedTargetDeviceId : void 0, connectedDevice = connectedTargetId === void 0 ? void 0 : listedHosts.find((device) => device.deviceId === connectedTargetId) ?? (selectedHost?.deviceId === connectedTargetId ? selectedHost : void 0), layerDevice = pickLayerDevice({ selected: selectedHost, failed: failedHost, connecting: connectingHost, connected: connectedDevice }), layerStates = connectionLayers({ needsAuthorization, device: layerDevice, connectedTargetDeviceId: connectedTargetId }), startupError = status?.startupError, startupBar = startupError === void 0 ? null : React.createElement(
         "div",
         { className: "dshRemoteConnectBar isDrop", role: "alert" },
         React.createElement(
           "div",
           { className: "dshRemoteConnectText" },
           React.createElement("strong", null, t("startupFailed", { message: "" }).split(":")[0]),
-          React.createElement("span", null, startupError.code === "IDENTITY_UNAVAILABLE" ? t("startupIdentityInUse", { file: ".identity-owner" }) : startupError.code === "IDENTITY_IN_USE" ? t("startupIdentityInUse", { file: ".identity-owner" }) : startupError.code === "INDETERMINATE" ? t("startupIndeterminate") : t("startupFailed", { message: startupError.message }))
+          React.createElement("span", null, startupError.code === "IDENTITY_IN_USE" ? t("startupIdentityInUse", { file: ".identity-owner" }) : startupError.code === "INDETERMINATE" ? t("startupIndeterminate") : t("startupFailed", { message: startupError.message }))
         )
       ), droppedDeviceId = status?.lastDrop?.deviceId, droppedHost = droppedDeviceId === void 0 ? void 0 : listedHosts.find((device) => device.deviceId === droppedDeviceId), reconnect = status?.reconnect, dropBar = droppedDeviceId === void 0 || failedHost !== void 0 || status?.connected === !0 ? null : React.createElement(
         "div",

@@ -19,6 +19,8 @@ export interface DiagnosticsInput {
   transport?: { connected: boolean; mode?: string; target?: string }
   features?: Record<string, boolean>
   error?: string
+  /** Present when the plugin could not acquire its identity directory at start. */
+  startup?: { code: string }
 }
 
 export interface DiagnosticsReport {
@@ -34,6 +36,8 @@ export interface DiagnosticsReport {
   features?: Record<string, boolean>
   /** Only whether an error is present: messages can quote URLs and identifiers. */
   error: { present: boolean }
+  /** Failure code only; the message can quote filesystem paths. */
+  startup?: { code: string }
 }
 
 /** Keeps only the origin: path, query (tokens) and credentials never leave the process. */
@@ -75,5 +79,6 @@ export function buildDiagnostics(input: DiagnosticsInput): DiagnosticsReport {
     }),
     ...(input.features === undefined ? {} : { features: input.features }),
     error: { present: input.error !== undefined && input.error.length > 0 },
+    ...(input.startup === undefined ? {} : { startup: input.startup }),
   }
 }

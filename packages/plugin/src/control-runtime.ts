@@ -561,6 +561,9 @@ export class PluginControlRuntime {
         ...(typeof status.connectedTargetDeviceId === 'string' ? { target: status.connectedTargetDeviceId } : {}),
       },
       ...(typeof status.error === 'string' ? { error: status.error } : {}),
+      ...(typeof status.startupError === 'object' && status.startupError !== null
+        ? { startup: { code: String((status.startupError as { code?: unknown }).code ?? 'STARTUP_FAILED') } }
+        : {}),
     }) }
   }
 

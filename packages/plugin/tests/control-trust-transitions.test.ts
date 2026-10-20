@@ -72,6 +72,18 @@ describe('control startup failure reporting (unit)', () => {
   })
 })
 
+describe('control diagnostics startup code (unit)', () => {
+  it('carries only the failure code, never the message', async () => {
+    const control = unitControl(new PluginControlRuntime(resolveConfig({ deviceName: 'synthetic-device' }),
+      '/unused-synthetic-unit-directory', undefined, undefined, undefined, undefined,
+      () => Object.assign(new Error('identity directory is owned at /home/synthetic/.dsh/remote'), { code: 'IDENTITY_IN_USE' })))
+    const result = await control.handle('diagnostics', {}, new AbortController().signal, local)
+    const report = JSON.parse(JSON.stringify((result as { value: unknown }).value)) as Record<string, unknown>
+    expect(report.startup).toEqual({ code: 'IDENTITY_IN_USE' })
+    expect(JSON.stringify(report)).not.toContain('/home/synthetic')
+  })
+})
+
 describe('control diagnostics snapshot (unit)', () => {
   it('describes the Client role even though a Host runtime object always exists', async () => {
     const client = facade()

@@ -31167,7 +31167,8 @@ function buildDiagnostics(input3) {
       }
     },
     ...input3.features === void 0 ? {} : { features: input3.features },
-    error: { present: input3.error !== void 0 && input3.error.length > 0 }
+    error: { present: input3.error !== void 0 && input3.error.length > 0 },
+    ...input3.startup === void 0 ? {} : { startup: input3.startup }
   };
 }
 
@@ -39091,7 +39092,8 @@ var PluginControlRuntime = class {
         ...typeof status2.connectedVia === "string" ? { mode: status2.connectedVia } : {},
         ...typeof status2.connectedTargetDeviceId === "string" ? { target: status2.connectedTargetDeviceId } : {}
       },
-      ...typeof status2.error === "string" ? { error: status2.error } : {}
+      ...typeof status2.error === "string" ? { error: status2.error } : {},
+      ...typeof status2.startupError === "object" && status2.startupError !== null ? { startup: { code: String(status2.startupError.code ?? "STARTUP_FAILED") } } : {}
     }) };
   }
   /** Client-role status lives in the remote runtime; keep this view conservative. */
@@ -43961,7 +43963,7 @@ async function activate(ctx, readConfig, entryId, tuiBinding) {
   let replacement;
   const replaceServer = (next) => {
     const operation = async () => {
-      await startup;
+      await startup?.catch(() => void 0);
       if (closed) throw new Error("Remote plugin is closed");
       const shutdown = await Promise.allSettled([clientRuntime?.close(), runtime.close()]);
       const failure4 = shutdown.find((result) => result.status === "rejected");
@@ -44032,8 +44034,14 @@ async function activate(ctx, readConfig, entryId, tuiBinding) {
         reason: error instanceof Error ? error.message.slice(0, 200) : "unknown"
       });
       if (tuiBinding?.target === tuiTarget) tuiBinding.target = void 0;
-      await clientRuntime?.close();
-      await runtime.close();
+      try {
+        await clientRuntime?.close();
+      } catch {
+      }
+      try {
+        await runtime.close();
+      } catch {
+      }
     }
     return async () => {
       closed = true;
