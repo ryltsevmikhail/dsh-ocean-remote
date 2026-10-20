@@ -56,6 +56,8 @@ export class PluginControlRuntime {
   private logoutFlight?: Promise<PluginSettingsView>
   private serverSwitchFlight?: Promise<PluginSettingsView>
   private authorityTransition = false
+  /** Config the current runtimes were built from; only replaced after a real restart. */
+  private runningConfig: ResolvedConfig
 
   constructor(
     private config: ResolvedConfig,
@@ -68,7 +70,9 @@ export class PluginControlRuntime {
       host: HostAuthorizationControl
     }>,
     private readonly startupFailure?: () => unknown,
-  ) {}
+  ) {
+    this.runningConfig = config
+  }
 
   register(connection: HostConnectionHandle, webServer?: HostWebServerLike): () => Promise<void> {
     const statusStream = new ControlStatusStream(() => this.streamStatus())
@@ -256,6 +260,7 @@ export class PluginControlRuntime {
       const runtimes = await this.switchServer(next)
       this.client = runtimes.client
       this.host = runtimes.host
+      this.runningConfig = next
     }
     this.config = next
     return {
@@ -329,6 +334,7 @@ export class PluginControlRuntime {
       const runtimes = await this.switchServer(next)
       this.client = runtimes.client
       this.host = runtimes.host
+      this.runningConfig = next
     }
     this.config = next
     // A live runtime replacement applies immediately; otherwise the profile change needs a restart.
@@ -494,14 +500,16 @@ export class PluginControlRuntime {
     const associations = await this.associations(config)
     const role = config.role === 'client' ? 'client' : 'host'
     const association = associations[role]
-    const runningRole = this.config.role === 'client' ? 'client' : 'host'
-    const runningDiffers = runningRole !== config.role || (this.config.serverUrl ?? '') !== (config.serverUrl ?? '')
+    const normalizeRole = (role: string | undefined): 'host' | 'client' => (role === 'client' ? 'client' : 'host')
+    const runningRole = normalizeRole(this.runningConfig.role)
+    const runningDiffers = runningRole !== normalizeRole(config.role)
+      || (this.runningConfig.serverUrl ?? '') !== (config.serverUrl ?? '')
     return {
       config,
       deviceName: hostname(),
       writable: this.settings !== undefined,
       applies: 'restart',
-      ...(runningDiffers ? { running: { role: runningRole, serverUrl: this.config.serverUrl } } : {}),
+      ...(runningDiffers ? { running: { role: runningRole, serverUrl: this.runningConfig.serverUrl } } : {}),
       associations,
       acpAvailability: Object.fromEntries((config.acp?.backends ?? []).map(item => [item.id, backendCommandAvailable(item.id, item.command ?? '')])),
       ...(association === undefined ? {} : { association }),

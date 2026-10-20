@@ -30,7 +30,7 @@ pnpm check:contrast
 | --- | --- |
 | `pnpm install --frozen-lockfile` | Успешно, ~25 с, lockfile не менялся |
 | `pnpm --filter './packages/**' -r build` | Успешно |
-| `pnpm -r test` | **838 тестов** зелёные в 9 пакетах: crypto 7, protocol 78, browser 1, server 13, webrtc 44, client-core 41, vscode 7, android 149, plugin 498. Десятый участник `examples/mock-host` запускается с `--passWithNoTests` и тестов не содержит |
+| `pnpm -r test` | **840 тестов** зелёные в 9 пакетах: crypto 7, protocol 78, browser 1, server 13, webrtc 44, client-core 41, vscode 7, android 149, plugin 500. Десятый участник `examples/mock-host` запускается с `--passWithNoTests` и тестов не содержит |
 | `pnpm -r check` | Успешно (типы во всех пакетах) |
 | `pnpm check:contrast` | 26 пар, обе темы |
 | `pnpm check:limits` | 20 входов/мин, 240 API-запросов/мин, вход занимает слот, `GET /healthz` не ограничен |

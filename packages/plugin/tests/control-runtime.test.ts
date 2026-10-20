@@ -58,6 +58,43 @@ describe('PluginControlRuntime settings setup', () => {
     } })))
   })
 
+  it('reports the configuration the runtimes really use when a change needs a restart', async () => {
+    const directory = await temporaryDirectory()
+    const settings = settingsBinding({ serverUrl: 'https://old.example.com', role: 'host' })
+    // No switchServer: the change is saved for the next start, the runtime keeps running old code.
+    const handler = register(new PluginControlRuntime(resolveConfig(settings.get()), directory, settings, undefined, undefined))
+    await expect(handler('settings.server.set', { serverUrl: 'https://new.example.com' }, signal())).resolves.toMatchObject({
+      ok: true,
+      value: {
+        applies: 'restart',
+        config: { serverUrl: 'https://new.example.com' },
+        running: { role: 'host', serverUrl: 'https://old.example.com' },
+      },
+    })
+    await expect(handler('settings.get', {}, signal())).resolves.toMatchObject({
+      ok: true,
+      value: { running: { role: 'host', serverUrl: 'https://old.example.com' } },
+    })
+    // Once saved values match the running ones again, the notice disappears.
+    await expect(handler('settings.server.set', { serverUrl: 'https://old.example.com' }, signal())).resolves.toMatchObject({
+      ok: true,
+      value: { config: { serverUrl: 'https://old.example.com' } },
+    })
+    const view = await handler('settings.get', {}, signal()) as RpcResult<{ running?: unknown }>
+    expect(view.ok && view.value.running).toBeUndefined()
+  })
+
+  it('treats role "both" as Host instead of promising a restart that cannot help', async () => {
+    const directory = await temporaryDirectory()
+    const settings = settingsBinding({ serverUrl: 'https://both.example.com', role: 'both' } as Config)
+    const handler = register(new PluginControlRuntime(resolveConfig(settings.get()), directory, settings, undefined, undefined))
+    const view = await handler('settings.get', {}, signal()) as RpcResult<{ running?: unknown; config: { role: string } }>
+    expect(view.ok).toBe(true)
+    if (!view.ok) return
+    expect(view.value.config.role).toBe('both')
+    expect(view.value.running).toBeUndefined()
+  })
+
   it('finishes both roles and credential cleanup in one shared sign-out even when one revocation fails', async () => {
     await runScenarios((['client', 'host'] as const).map(failingRole => ({ name: failingRole, run: async () => {
       const directory = await temporaryDirectory()

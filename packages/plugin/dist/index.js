@@ -38664,10 +38664,13 @@ var PluginControlRuntime = class {
     this.host = host;
     this.switchServer = switchServer;
     this.startupFailure = startupFailure;
+    this.runningConfig = config;
   }
   logoutFlight;
   serverSwitchFlight;
   authorityTransition = false;
+  /** Config the current runtimes were built from; only replaced after a real restart. */
+  runningConfig;
   register(connection, webServer) {
     const statusStream = new ControlStatusStream(() => this.streamStatus());
     return registerControlRoute(
@@ -38854,6 +38857,7 @@ var PluginControlRuntime = class {
         const runtimes = await this.switchServer(next);
         this.client = runtimes.client;
         this.host = runtimes.host;
+        this.runningConfig = next;
       }
       this.config = next;
       return {
@@ -38923,6 +38927,7 @@ var PluginControlRuntime = class {
       const runtimes = await this.switchServer(next);
       this.client = runtimes.client;
       this.host = runtimes.host;
+      this.runningConfig = next;
     }
     this.config = next;
     return { ...await this.settingsView(), applies: role !== currentRole && this.switchServer === void 0 ? "restart" : "live" };
@@ -39068,14 +39073,15 @@ var PluginControlRuntime = class {
     const associations = await this.associations(config);
     const role = config.role === "client" ? "client" : "host";
     const association = associations[role];
-    const runningRole = this.config.role === "client" ? "client" : "host";
-    const runningDiffers = runningRole !== config.role || (this.config.serverUrl ?? "") !== (config.serverUrl ?? "");
+    const normalizeRole = (role2) => role2 === "client" ? "client" : "host";
+    const runningRole = normalizeRole(this.runningConfig.role);
+    const runningDiffers = runningRole !== normalizeRole(config.role) || (this.runningConfig.serverUrl ?? "") !== (config.serverUrl ?? "");
     return {
       config,
       deviceName: hostname2(),
       writable: this.settings !== void 0,
       applies: "restart",
-      ...runningDiffers ? { running: { role: runningRole, serverUrl: this.config.serverUrl } } : {},
+      ...runningDiffers ? { running: { role: runningRole, serverUrl: this.runningConfig.serverUrl } } : {},
       associations,
       acpAvailability: Object.fromEntries((config.acp?.backends ?? []).map((item) => [item.id, backendCommandAvailable(item.id, item.command ?? "")])),
       ...association === void 0 ? {} : { association }
