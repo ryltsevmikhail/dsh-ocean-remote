@@ -17,7 +17,7 @@
         enabled: true
         role: host
         codex:
-          enabled: true
+          enabled: false
           binary: codex
     - id: ds-harness-remote-tui
       name: ds-harness-remote
@@ -31,5 +31,5 @@
         enabled: true
         role: host
         codex:
-          enabled: true
+          enabled: false
           binary: codex
