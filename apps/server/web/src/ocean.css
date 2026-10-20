@@ -3,12 +3,16 @@
   color: #262626; background: #f9fafb; color-scheme: light;
   line-height: 1.6; font-synthesis: none; -webkit-font-smoothing: antialiased;
   --surface: #fff; --ink: #262626; --muted: #6b6b74; --border: #e5e7eb;
+  /* --border-strong is the boundary of interactive controls (inputs, buttons):
+     WCAG 1.4.11 requires 3:1, plain --border is a decorative separator. */
+  --border-strong: #6b7280;
   --accent: #4160ed; --button: #4160ed; --wash: #f1f4ff;
 }
 * { box-sizing: border-box; }
 body { margin: 0; }
 a { color: var(--accent); }
 button, input { font: inherit; }
+input, select, textarea, button:not(.primary) { border-color: var(--border-strong); }
 .ocean-console { max-width: 1200px; min-height: 100dvh; padding: 0 48px; margin: auto; display: flex; flex-direction: column; }
 .site-header { display: flex; align-items: center; justify-content: space-between; padding: 30px 0; gap: 20px; }
 .brand { display: flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; line-height: 1.3; }
@@ -97,7 +101,7 @@ tbody th { font-weight: 600; }
   .actions > div { width: 100%; }
 }
 @media (prefers-color-scheme: dark) {
-  :root { background: #212327; color: #e5e5e5; color-scheme: dark; --surface: #292b30; --ink: #f0f0f0; --muted: #a6a8b0; --border: #3d3f46; --accent: #8a9bff; --wash: #303447; }
+  :root { background: #212327; color: #e5e5e5; color-scheme: dark; --surface: #292b30; --ink: #f0f0f0; --muted: #a6a8b0; --border: #3d3f46; --border-strong: #9aa0a6; --accent: #8a9bff; --wash: #303447; }
   .error { color: #f5c4b9; background: #382a29; border-color: #6c4841; }
   .device-status.online { color: #86d6b2; }
 }
