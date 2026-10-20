@@ -920,12 +920,18 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
     const droppedHost = droppedDeviceId === undefined
       ? undefined
       : listedHosts.find(device => device.deviceId === droppedDeviceId)
-    const dropBar = droppedDeviceId === undefined || status?.mode === 'remote' || failedHost !== undefined
+    // During automatic retries the mode stays remote but the session is gone: the
+    // notice stays visible and reports the next attempt instead of going silent.
+    const reconnect = status?.reconnect
+    const dropBar = droppedDeviceId === undefined || failedHost !== undefined
+      || status?.connected === true
       ? null
       : React.createElement('div', { className: 'dshRemoteConnectBar isDrop', role: 'status' },
         React.createElement('div', { className: 'dshRemoteConnectText' },
           React.createElement('strong', null, t('dropTitle')),
-          React.createElement('span', null, t('dropBody', { name: droppedHost?.name ?? droppedDeviceId.slice(0, 8) }))),
+          React.createElement('span', null, reconnect === undefined
+            ? t('dropBody', { name: droppedHost?.name ?? droppedDeviceId.slice(0, 8) })
+            : t('dropRetrying', { attempt: String(reconnect.attempt), name: droppedHost?.name ?? droppedDeviceId.slice(0, 8) }))),
         droppedHost === undefined
           ? null
           : React.createElement('button', {

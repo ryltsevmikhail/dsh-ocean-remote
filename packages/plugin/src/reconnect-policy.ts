@@ -11,6 +11,9 @@ export interface ReconnectTiming {
 /** Give up after this many consecutive attempts; the operator still has the manual retry. */
 export const MAX_RECONNECT_ATTEMPTS = 6
 
+/** A connection that survives this long is considered healthy and resets the budget. */
+export const RECONNECT_STABLE_MS = 60_000
+
 /** Delay before the next attempt: exponential, capped, with symmetric jitter. */
 export function reconnectDelay(attempt: number, timing: ReconnectTiming, random: () => number = Math.random): number {
   const step = Math.max(0, Math.min(attempt, 30))
@@ -27,6 +30,7 @@ export function shouldRetry(error: unknown): boolean {
   if (retryable === false) return false
   const code = (error as { code?: unknown } | undefined)?.code
   if (typeof code !== 'string') return true
-  return !['PEER_APPROVAL_REQUIRED', 'PEER_IDENTITY_MISMATCH', 'AUTH_REQUIRED', 'AUTH_INVALID',
-    'FEATURE_NOT_SUPPORTED', 'CONNECTION_REPLACED', 'HOST_VERSION_UNSUPPORTED'].includes(code)
+  return !['PEER_APPROVAL_REQUIRED', 'PEER_IDENTITY_MISMATCH', 'ACCOUNT_AUTH_REQUIRED', 'AUTH_INVALID',
+    'TOKEN_EXPIRED', 'DEVICE_REVOKED', 'DEVICE_NOT_FOUND', 'FEATURE_NOT_SUPPORTED', 'UNSUPPORTED_VERSION',
+    'CONNECTION_REPLACED', 'CONNECTION_CANCELLED'].includes(code)
 }

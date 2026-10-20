@@ -41,6 +41,8 @@ export interface RemoteStatus {
   connectedTargetDeviceId?: string
   /** Set when an established session closed without an operator action. */
   lastDrop?: RemoteDropNotice
+  /** Pending automatic retry after a drop (absent once it succeeds or gives up). */
+  reconnect?: { targetDeviceId: string; attempt: number; nextAt: number }
   transport?: 'LAN' | 'P2P' | 'TURN' | 'Relay' | 'Disconnected'
   preferredTransports?: RemoteTransportPreference[]
   connectionProgress?: {

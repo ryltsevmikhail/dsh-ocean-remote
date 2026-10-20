@@ -58,7 +58,7 @@ import type { TypertGatewayLike } from './typert-gateway-contract.js'
 import { TypertGatewaySwitch } from './typert-gateway-switch.js'
 import type { WeriftFactoryOptions } from './werift-rtc.js'
 import { loadNodeRtcFactory } from './werift-rtc.js'
-import { MAX_RECONNECT_ATTEMPTS, reconnectDelay, shouldRetry } from './reconnect-policy.js'
+import { MAX_RECONNECT_ATTEMPTS, RECONNECT_STABLE_MS, reconnectDelay, shouldRetry } from './reconnect-policy.js'
 
 export class ClientModeRuntime {
   private async connect(targetDeviceId: string, signal?: AbortSignal): Promise<ConnectedRemote> {
@@ -87,6 +87,11 @@ export class ClientModeRuntime {
   private lastDrop?: { deviceId: string; name?: string; at: number }
   private reconnectTimer?: ReturnType<typeof setTimeout>
   private reconnectAttempt = 0
+  private reconnectState?: { targetDeviceId: string; attempt: number; nextAt: number }
+  /** Bumped by every deliberate state change so stale attempts cannot act. */
+  private reconnectEpoch = 0
+  private stableTimer?: ReturnType<typeof setTimeout>
+  private internalReconnect = false
   private codexVirtual?: CodexVirtualHarness
   private codexVirtualSelection?: { targetDeviceId: string; workspaceId: string }
   private readonly codexOpenedSessions = new Map<string, string>()
@@ -311,6 +316,7 @@ export class ClientModeRuntime {
         ? this.acpVirtualBackend
         : this.codexVirtual === undefined ? 'harness' : 'codex',
       ...(this.lastDrop === undefined ? {} : { lastDrop: { ...this.lastDrop } }),
+      ...(this.reconnectState === undefined ? {} : { reconnect: { ...this.reconnectState } }),
       hostAuthorizationAvailable: this.host !== undefined,
       ...(this.host === undefined ? {} : { host: this.host.hostStatus() }),
     }
@@ -452,6 +458,8 @@ export class ClientModeRuntime {
     if (targetDeviceId === undefined || targetDeviceId.length === 0) {
       throw new ClientModeError('INVALID_MESSAGE', 'A targetDeviceId is required for remote mode.')
     }
+    // A manual connect supersedes any pending automatic retry.
+    if (!this.internalReconnect) this.resetReconnect()
     const lifetime = this.remoteLifetime.signal
     const next = await this.connect(targetDeviceId, signal)
     try {
@@ -469,8 +477,9 @@ export class ClientModeRuntime {
     }
     this.connected = next
     this.clearReconnectTimer()
-    this.reconnectAttempt = 0
+    this.reconnectState = undefined
     this.lastDrop = undefined
+    this.markReconnectStable()
     this.connection.clearConnectionProgress(next.progressRunId)
     this.pendingWorkspaceSelection = undefined
     await this.closeCodexVirtual()
@@ -790,24 +799,55 @@ export class ClientModeRuntime {
     if (!this.config.reconnect.enabled) return
     if (this.reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
       this.logger.warn('remote Harness reconnect attempts exhausted', { targetDeviceId: shortId(targetDeviceId) })
+      this.reconnectState = undefined
       return
     }
     const delay = reconnectDelay(this.reconnectAttempt, this.config.reconnect)
     this.reconnectAttempt += 1
+    const epoch = this.reconnectEpoch
+    this.reconnectState = { targetDeviceId, attempt: this.reconnectAttempt, nextAt: Date.now() + delay }
     this.clearReconnectTimer()
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = undefined
-      if (this.closed || this.connected !== undefined) return
+      if (this.closed || this.connected !== undefined || epoch !== this.reconnectEpoch) return
+      this.internalReconnect = true
       void this.setMode('remote', targetDeviceId).catch(error => {
+        // A deliberate leave during the attempt must not restart the connection.
+        if (this.closed || epoch !== this.reconnectEpoch) return
         this.logger.warn('remote Harness reconnect attempt failed', {
           targetDeviceId: shortId(targetDeviceId),
           reason: diagnosticReason(error),
         })
         if (shouldRetry(error)) this.scheduleReconnect(targetDeviceId)
-        else this.connectionProgress = undefined
-      })
+        else this.reconnectState = undefined
+      }).finally(() => { this.internalReconnect = false })
     }, delay)
     this.reconnectTimer.unref?.()
+  }
+
+  /** Cancels retries and invalidates any attempt already in flight. */
+  private resetReconnect(): void {
+    this.reconnectEpoch += 1
+    this.reconnectAttempt = 0
+    this.reconnectState = undefined
+    this.clearReconnectTimer()
+    this.clearStableTimer()
+  }
+
+  private clearStableTimer(): void {
+    if (this.stableTimer !== undefined) { clearTimeout(this.stableTimer); this.stableTimer = undefined }
+  }
+
+  /** Keeps the budget after a flap: a connection must stay up to earn a fresh budget. */
+  private markReconnectStable(): void {
+    this.clearStableTimer()
+    const epoch = this.reconnectEpoch
+    this.stableTimer = setTimeout(() => {
+      this.stableTimer = undefined
+      if (this.closed || epoch !== this.reconnectEpoch || this.connected === undefined) return
+      this.reconnectAttempt = 0
+    }, RECONNECT_STABLE_MS)
+    this.stableTimer.unref?.()
   }
 
   private clearReconnectTimer(): void {
@@ -815,8 +855,7 @@ export class ClientModeRuntime {
   }
 
   private async leaveRemote(): Promise<void> {
-    this.clearReconnectTimer()
-    this.reconnectAttempt = 0
+    this.resetReconnect()
     this.lastDrop = undefined
     this.remoteLifetime.abort(new ClientModeError('CANCELLED', 'The Remote connection was closed.'))
     this.remoteLifetime = new AbortController()

@@ -32,8 +32,12 @@ describe('reconnect policy', () => {
   it('stops retrying failures that a retry cannot fix', () => {
     expect(shouldRetry({ code: 'PEER_APPROVAL_REQUIRED', retryable: true })).toBe(false)
     expect(shouldRetry({ code: 'PEER_IDENTITY_MISMATCH' })).toBe(false)
-    expect(shouldRetry({ code: 'AUTH_REQUIRED' })).toBe(false)
+    expect(shouldRetry({ code: 'ACCOUNT_AUTH_REQUIRED' })).toBe(false)
+    expect(shouldRetry({ code: 'TOKEN_EXPIRED' })).toBe(false)
+    expect(shouldRetry({ code: 'DEVICE_REVOKED' })).toBe(false)
+    expect(shouldRetry({ code: 'UNSUPPORTED_VERSION' })).toBe(false)
     expect(shouldRetry({ code: 'CONNECTION_REPLACED' })).toBe(false)
+    expect(shouldRetry({ code: 'CONNECTION_CANCELLED' })).toBe(false)
     expect(shouldRetry({ code: 'CONNECTION_FAILED', retryable: false })).toBe(false)
     expect(shouldRetry({ code: 'CONNECTION_FAILED', retryable: true })).toBe(true)
     expect(shouldRetry(new Error('socket hang up'))).toBe(true)

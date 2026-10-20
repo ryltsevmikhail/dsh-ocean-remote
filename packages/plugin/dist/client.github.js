@@ -1683,6 +1683,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
     dropTitle: "Connection lost",
     dropBody: "The session with {name} closed unexpectedly. Work running on the Host is not lost.",
     dropReconnect: "Connect again",
+    dropRetrying: "Connection to {name} lost. Reconnecting automatically (attempt {attempt}).",
     layerTrustOk: "Key: trusted",
     layerTrustPending: "Key: approval required",
     layerTrustConflict: "Key: changed",
@@ -1987,6 +1988,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
     dropTitle: "\u8FDE\u63A5\u5DF2\u4E2D\u65AD",
     dropBody: "\u4E0E {name} \u7684\u4F1A\u8BDD\u610F\u5916\u7ED3\u675F\u3002\u4E3B\u673A\u4E0A\u6B63\u5728\u8FD0\u884C\u7684\u5DE5\u4F5C\u4E0D\u4F1A\u4E22\u5931\u3002",
     dropReconnect: "\u91CD\u65B0\u8FDE\u63A5",
+    dropRetrying: "\u4E0E {name} \u7684\u8FDE\u63A5\u5DF2\u4E2D\u65AD\uFF0C\u6B63\u5728\u81EA\u52A8\u91CD\u8FDE\uFF08\u7B2C {attempt} \u6B21\uFF09\u3002",
     layerTrustOk: "\u5BC6\u94A5\uFF1A\u5DF2\u4FE1\u4EFB",
     layerTrustPending: "\u5BC6\u94A5\uFF1A\u9700\u8981\u786E\u8BA4",
     layerTrustConflict: "\u5BC6\u94A5\uFF1A\u5DF2\u53D8\u66F4",
@@ -4046,14 +4048,14 @@ Minimum version required to store current data is: ` + bestVersion + `.
             ))
           )
         ) : null
-      ) : null, listedHosts = connectingHost === void 0 ? devices : [connectingHost], connectedTargetId = status?.connected === !0 ? status.connectedTargetDeviceId : void 0, connectedDevice = connectedTargetId === void 0 ? void 0 : listedHosts.find((device) => device.deviceId === connectedTargetId) ?? (selectedHost?.deviceId === connectedTargetId ? selectedHost : void 0), layerDevice = pickLayerDevice({ selected: selectedHost, failed: failedHost, connecting: connectingHost, connected: connectedDevice }), layerStates = connectionLayers({ needsAuthorization, device: layerDevice, connectedTargetDeviceId: connectedTargetId }), droppedDeviceId = status?.lastDrop?.deviceId, droppedHost = droppedDeviceId === void 0 ? void 0 : listedHosts.find((device) => device.deviceId === droppedDeviceId), dropBar = droppedDeviceId === void 0 || status?.mode === "remote" || failedHost !== void 0 ? null : React.createElement(
+      ) : null, listedHosts = connectingHost === void 0 ? devices : [connectingHost], connectedTargetId = status?.connected === !0 ? status.connectedTargetDeviceId : void 0, connectedDevice = connectedTargetId === void 0 ? void 0 : listedHosts.find((device) => device.deviceId === connectedTargetId) ?? (selectedHost?.deviceId === connectedTargetId ? selectedHost : void 0), layerDevice = pickLayerDevice({ selected: selectedHost, failed: failedHost, connecting: connectingHost, connected: connectedDevice }), layerStates = connectionLayers({ needsAuthorization, device: layerDevice, connectedTargetDeviceId: connectedTargetId }), droppedDeviceId = status?.lastDrop?.deviceId, droppedHost = droppedDeviceId === void 0 ? void 0 : listedHosts.find((device) => device.deviceId === droppedDeviceId), reconnect = status?.reconnect, dropBar = droppedDeviceId === void 0 || failedHost !== void 0 || status?.connected === !0 ? null : React.createElement(
         "div",
         { className: "dshRemoteConnectBar isDrop", role: "status" },
         React.createElement(
           "div",
           { className: "dshRemoteConnectText" },
           React.createElement("strong", null, t("dropTitle")),
-          React.createElement("span", null, t("dropBody", { name: droppedHost?.name ?? droppedDeviceId.slice(0, 8) }))
+          React.createElement("span", null, reconnect === void 0 ? t("dropBody", { name: droppedHost?.name ?? droppedDeviceId.slice(0, 8) }) : t("dropRetrying", { attempt: String(reconnect.attempt), name: droppedHost?.name ?? droppedDeviceId.slice(0, 8) }))
         ),
         droppedHost === void 0 ? null : React.createElement("button", {
           type: "button",

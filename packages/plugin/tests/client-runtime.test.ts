@@ -31,6 +31,42 @@ const cleanupScenario1 = async () => {
 afterEach(cleanupScenario1)
 
 describe('ClientModeRuntime drop notice', () => {
+  it('cancels a pending retry when the operator retries manually', async () => {
+    vi.useFakeTimers()
+    try {
+      const directory = await mkdtemp(join(tmpdir(), 'dsh-client-manual-'))
+      directories.push(directory)
+      const runtime = new ClientModeRuntime({ ...config(), reconnect: { enabled: true, initialDelayMs: 30_000, maxDelayMs: 30_000, jitter: 0 } },
+        new IdentityStore({ directory }),
+        { bindIdentity: vi.fn(), revokeCurrentDevice: vi.fn(async () => undefined) } as unknown as ClientServerApi,
+        apiProxy(), gatewayWithCarrier(), logger())
+      try {
+        await runtime.start()
+        const state = runtime as unknown as {
+          connected: unknown
+          handleUnexpectedClose(targetDeviceId: string): void
+          connection: { connect: (id: string, signal?: AbortSignal) => Promise<unknown> }
+        }
+        state.connected = {
+          client: { close: vi.fn(async () => undefined), getStats: () => ({ mode: 'Relay', connected: true }) },
+          target: { deviceId: 'host-device-1', name: 'Workstation' },
+          features: {},
+        }
+        const connect = vi.spyOn(state.connection, 'connect')
+          .mockRejectedValue(Object.assign(new Error('offline'), { code: 'CONNECTION_FAILED', retryable: true }))
+        state.connected = undefined
+        state.handleUnexpectedClose('host-device-1')
+        expect(runtime.status().reconnect).toMatchObject({ attempt: 1 })
+        // The operator retries by hand before the automatic attempt fires.
+        await expect(runtime.setMode('remote', 'host-device-1')).rejects.toBeDefined()
+        expect(runtime.status().reconnect).toBeUndefined()
+        const afterManual = connect.mock.calls.length
+        await vi.advanceTimersByTimeAsync(60_000)
+        expect(connect.mock.calls.length).toBe(afterManual)
+      } finally { await runtime.close() }
+    } finally { vi.useRealTimers() }
+  })
+
   it('retries the dropped Host with backoff and stops on an explicit return to local', async () => {
     vi.useFakeTimers()
     try {
@@ -66,6 +102,72 @@ describe('ClientModeRuntime drop notice', () => {
         const afterLeave = connect.mock.calls.length
         await vi.advanceTimersByTimeAsync(30_000)
         expect(connect.mock.calls.length).toBe(afterLeave)
+      } finally { await runtime.close() }
+    } finally { vi.useRealTimers() }
+  })
+
+  it('stops retrying after the budget is spent and keeps the notice', async () => {
+    vi.useFakeTimers()
+    try {
+      const directory = await mkdtemp(join(tmpdir(), 'dsh-client-budget-'))
+      directories.push(directory)
+      const runtime = new ClientModeRuntime({ ...config(), reconnect: { enabled: true, initialDelayMs: 100, maxDelayMs: 200, jitter: 0 } },
+        new IdentityStore({ directory }),
+        { bindIdentity: vi.fn(), revokeCurrentDevice: vi.fn(async () => undefined) } as unknown as ClientServerApi,
+        apiProxy(), gatewayWithCarrier(), logger())
+      try {
+        await runtime.start()
+        const state = runtime as unknown as {
+          connected: unknown
+          handleUnexpectedClose(targetDeviceId: string): void
+          connection: { connect: (id: string, signal?: AbortSignal) => Promise<unknown> }
+        }
+        state.connected = {
+          client: { close: vi.fn(async () => undefined), getStats: () => ({ mode: 'Relay', connected: true }) },
+          target: { deviceId: 'host-device-1', name: 'Workstation' },
+          features: {},
+        }
+        const connect = vi.spyOn(state.connection, 'connect')
+          .mockRejectedValue(Object.assign(new Error('offline'), { code: 'CONNECTION_FAILED', retryable: true }))
+        state.connected = undefined
+        state.handleUnexpectedClose('host-device-1')
+        await vi.advanceTimersByTimeAsync(120_000)
+        // Six attempts, then the budget is exhausted and the notice stays for a manual retry.
+        expect(connect).toHaveBeenCalledTimes(6)
+        expect(runtime.status().lastDrop).toBeDefined()
+        expect(runtime.status().reconnect).toBeUndefined()
+      } finally { await runtime.close() }
+    } finally { vi.useRealTimers() }
+  })
+
+  it('stops retrying when the Host refuses for a reason a retry cannot fix', async () => {
+    vi.useFakeTimers()
+    try {
+      const directory = await mkdtemp(join(tmpdir(), 'dsh-client-fatal-'))
+      directories.push(directory)
+      const runtime = new ClientModeRuntime({ ...config(), reconnect: { enabled: true, initialDelayMs: 100, maxDelayMs: 200, jitter: 0 } },
+        new IdentityStore({ directory }),
+        { bindIdentity: vi.fn(), revokeCurrentDevice: vi.fn(async () => undefined) } as unknown as ClientServerApi,
+        apiProxy(), gatewayWithCarrier(), logger())
+      try {
+        await runtime.start()
+        const state = runtime as unknown as {
+          connected: unknown
+          handleUnexpectedClose(targetDeviceId: string): void
+          connection: { connect: (id: string, signal?: AbortSignal) => Promise<unknown> }
+        }
+        state.connected = {
+          client: { close: vi.fn(async () => undefined), getStats: () => ({ mode: 'Relay', connected: true }) },
+          target: { deviceId: 'host-device-1', name: 'Workstation' },
+          features: {},
+        }
+        const connect = vi.spyOn(state.connection, 'connect').mockRejectedValue(
+          Object.assign(new Error('approval required'), { code: 'PEER_APPROVAL_REQUIRED', retryable: true }))
+        state.connected = undefined
+        state.handleUnexpectedClose('host-device-1')
+        await vi.advanceTimersByTimeAsync(60_000)
+        expect(connect).toHaveBeenCalledTimes(1)
+        expect(runtime.status().reconnect).toBeUndefined()
       } finally { await runtime.close() }
     } finally { vi.useRealTimers() }
   })
