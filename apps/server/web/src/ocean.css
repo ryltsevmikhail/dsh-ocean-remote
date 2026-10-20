@@ -17,7 +17,7 @@ body { margin: 0; }
 a { color: var(--accent); }
 button, input { font: inherit; }
 input, select, textarea, button:not(.primary) { border-color: var(--border-strong); }
-.ocean-console { max-width: 1200px; min-height: 100dvh; padding: 0 48px; margin: auto; display: flex; flex-direction: column; }
+.ocean-console { max-width: 1200px; min-height: 100dvh; padding: 0 48px; margin: auto; display: flex; flex-direction: column; min-width: 0; }
 .site-header { display: flex; align-items: center; justify-content: space-between; padding: 30px 0; gap: 20px; }
 .brand { display: flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; line-height: 1.3; }
 .brand-mark { width: 42px; height: 42px; background: #4d6bfe; color: #fff; border-radius: 12px; display: grid; place-items: center; font-size: 32px; padding-bottom: 4px; }
@@ -26,7 +26,7 @@ input, select, textarea, button:not(.primary) { border-color: var(--border-stron
 .brand small { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; letter-spacing: .2px; }
 .server-badge { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); border: 1px solid var(--border); border-radius: 20px; padding: 6px 12px; }
 .server-badge > span { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
-main { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 44px 0 64px; }
+main { flex: 1; display: flex; flex-direction: column; justify-content: center; min-width: 0; padding: 44px 0 64px; }
 .login-layout { display: grid; grid-template-columns: 1.15fr 1fr; align-items: center; gap: 76px; }
 .eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 1.6px; color: var(--accent); }
 .login-intro h1 { font-size: clamp(32px, 3.8vw, 48px); line-height: 1.2; letter-spacing: -1.7px; color: var(--ink); font-weight: 600; margin: 22px 0; }
@@ -68,8 +68,13 @@ footer p { margin: 0; max-width: 580px; color: var(--muted); font-size: 10px; li
 .connection-info { padding: 20px 24px; border-radius: 12px; background: var(--wash); display: flex; justify-content: space-between; align-items: center; gap: 24px; margin: 24px 0; }
 .connection-info code { display: block; font-size: 15px; margin-top: 5px; color: var(--ink); overflow-wrap: anywhere; }
 .connection-info p { margin: 0; font-size: 11px; color: var(--muted); }
-.device-table { overflow-x: auto; margin-top: 24px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.device-table { overflow-x: auto; max-width: 100%; min-width: 0; margin-top: 24px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
 table { border-collapse: collapse; width: 100%; min-width: 620px; font-size: 12px; text-align: left; }
+/* Below the table's natural width the document must not scroll: columns wrap instead. */
+@media (max-width: 699px) {
+  table { min-width: 0; }
+  .device-table th, .device-table td { padding: 10px 8px; }
+}
 caption { text-align: left; padding: 18px 20px; color: var(--muted); font-size: 11px; }
 td, th { padding: 16px 20px; border-top: 1px solid var(--border); max-width: 300px; overflow-wrap: anywhere; }
 thead th { font-size: 10px; font-weight: 500; color: var(--muted); background: var(--wash); }

@@ -170,6 +170,31 @@ try {
   results.onlineRowFirst = (await page.locator('table tbody tr').first().innerText()).includes('console-check-online')
   results.offlineRowShown = (await page.locator('table tbody tr').count()) === 2
 
+  // Accessibility and layout facts that only a real browser can report.
+  const a11y = await page.evaluate(() => {
+    const unnamedButtons = [...document.querySelectorAll('button')].filter(button => (button.textContent ?? '').trim() === '' && !button.getAttribute('aria-label'))
+    const revoke = [...document.querySelectorAll('button')].find(button => (button.textContent ?? '').includes('Отозвать'))
+    return {
+      caption: document.querySelector('table caption')?.textContent ?? '',
+      unnamedButtons: unnamedButtons.length,
+      revokeLabel: revoke?.getAttribute('aria-label') ?? '',
+      tableColumns: document.querySelectorAll('table thead th').length,
+    }
+  })
+  results.captionHasCounts = /устройств/iu.test(a11y.caption)
+  results.unnamedButtons = a11y.unnamedButtons
+  results.revokeLabelNamesDevice = a11y.revokeLabel.includes('console-check-online')
+  results.tableColumns = a11y.tableColumns
+
+  await page.keyboard.press('Tab')
+  results.firstTabFocusVisible = await page.evaluate(() => getComputedStyle(document.activeElement).outlineStyle !== 'none')
+
+  await page.setViewportSize({ width: 360, height: 720 })
+  results.noHorizontalOverflow360 = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)
+  await page.setViewportSize({ width: 640, height: 450 })
+  results.noHorizontalOverflowZoom200 = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)
+  await page.setViewportSize({ width: 1280, height: 900 })
+
   // Revoke the offline device first, then close the socket and revoke the online one.
   await page.getByRole('button', { name: 'Отозвать устройство console-check-offline', exact: true }).click()
   // Wait for the table to become empty: the account e-mail contains the device name,
@@ -203,6 +228,12 @@ if (results.offlineRowShown !== true) failures.push('the offline device disappea
 if (results.noneOnlineBeforeSocket !== true) failures.push('a device was shown online before any socket opened')
 if (results.captionBeforeSocket.trim() !== '0 из 2 устройств онлайн') failures.push(`caption before socket: ${results.captionBeforeSocket}`)
 if (results.captionCorrect !== true) failures.push(`caption after socket: ${results.caption}`)
+if (results.unnamedButtons !== 0) failures.push(`${results.unnamedButtons} buttons have no accessible name`)
+if (results.revokeLabelNamesDevice !== true) failures.push('the revoke button does not name the device')
+if (results.captionHasCounts !== true) failures.push('the device table caption does not state counts')
+if (results.firstTabFocusVisible !== true) failures.push('the first Tab stop has no visible focus ring')
+if (results.noHorizontalOverflow360 !== true) failures.push('horizontal overflow at 360px')
+if (results.noHorizontalOverflowZoom200 !== true) failures.push('horizontal overflow at 200% zoom width')
 if (results.revoked !== true) failures.push('revoked device stayed in the server list')
 if (results.logoutReturnedToLogin !== true) failures.push('logout did not return to the login screen')
 if (results.meAfterLogout !== 401) failures.push(`session survived logout (${results.meAfterLogout})`)
