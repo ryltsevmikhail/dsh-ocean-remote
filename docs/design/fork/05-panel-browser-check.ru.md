@@ -25,7 +25,7 @@ Approve изначально отключён; checkbox + точный полн�
 
 ## Что ещё не принято
 
-- Настоящая оболочка DSH, её focus trap/return и темы с реальными aliases.
+- В этом синтетическом прогоне не проверялась настоящая оболочка DSH. Её отдельный результат, включая focus trap/return, описан в [native smoke](06-native-panel-check.ru.md).
 - Настоящий browser zoom 200 %, screen-reader walkthrough.
 - Все loading/error/legacy/changed-key/revoke состояния на живой паре.
 - Реальная сессия модели и двухмашинные обрыв/отзыв — прежние пользовательские gates.
