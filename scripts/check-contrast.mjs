@@ -86,6 +86,12 @@ const TEXT = [
   ['accent on page', 'accent', 'page', 4.5],
   ['accent on wash', 'accent', 'wash', 4.5],
   ['white label on primary button', '#ffffff', 'button', 4.5],
+  // State colours are semantic tokens; they must stay readable on surfaces.
+  ['success on surface', 'success', 'surface', 4.5],
+  ['success on page', 'success', 'page', 4.5],
+  ['warning on surface', 'warning', 'surface', 4.5],
+  ['danger on surface', 'danger', 'surface', 4.5],
+  ['danger on wash', 'danger', 'wash', 4.5],
 ]
 // Non-text pairs (WCAG 1.4.11): interactive boundaries and the focus ring need 3:1.
 const NON_TEXT = [

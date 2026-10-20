@@ -15,8 +15,8 @@ describe('documented palette contrast', () => {
     const { stdout } = await run(process.execPath, [script])
     // Both themes, text and non-text pairs: a collapsed palette would print fewer lines.
     const passing = stdout.split('\n').filter(line => line.startsWith('ok '))
-    expect(passing).toHaveLength(26)
-    expect(stdout).toContain('All 26 checked pairs meet WCAG AA.')
+    expect(passing).toHaveLength(36)
+    expect(stdout).toContain('All 36 checked pairs meet WCAG AA.')
     expect(passing.some(line => line.includes('light') && line.includes('control border on surface'))).toBe(true)
     expect(passing.some(line => line.includes('dark') && line.includes('focus ring on surface'))).toBe(true)
   }, 30_000)

@@ -7,6 +7,8 @@
      WCAG 1.4.11 requires 3:1, plain --border is a decorative separator. */
   --border-strong: #6b7280;
   --accent: #4160ed; --button: #4160ed; --wash: #f1f4ff;
+  /* Semantic states (design step 1): one place to adjust, contrast is checked. */
+  --success: #276a3c; --warning: #825306; --danger: #a73a32;
 }
 * { box-sizing: border-box; }
 body { margin: 0; }
@@ -50,7 +52,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 h2:focus { outline: none; }
 h2:focus-visible { outline: 2px solid var(--accent); }
-.error { border: 1px solid #edc3ba; border-radius: 9px; background: #fff5f2; padding: 12px 16px; color: #9a3929; font-size: 13px; margin: 0 0 24px; }
+.error { border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); border-radius: 9px; background: var(--wash); padding: 12px 16px; color: var(--danger); font-size: 13px; margin: 0 0 24px; }
 footer { padding: 20px 0 26px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 32px; align-items: flex-start; }
 .footer-links { display: flex; flex-wrap: wrap; gap: 14px; }
 .footer-links a { font-size: 11px; text-decoration: none; white-space: nowrap; }
@@ -72,8 +74,8 @@ thead th { font-size: 10px; font-weight: 500; color: var(--muted); background: v
 tbody th { font-weight: 600; }
 .device-status { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-size: 11px; }
 .device-status::before { content: ''; width: 6px; height: 6px; background: #98a9b0; border-radius: 50%; flex: 0 0 auto; }
-.device-status.online { color: #227655; }
-.device-status.online::before { background: #359768; }
+.device-status.online { color: var(--success); }
+.device-status.online::before { background: currentColor; }
 .empty-state { padding: 36px 24px 42px; text-align: center; border-top: 1px solid var(--border); }
 .empty-symbol { display: inline-grid; place-items: center; width: 44px; height: 44px; background: var(--wash); color: var(--accent); border-radius: 12px; font-size: 24px; }
 .empty-state h3 { font-size: 14px; font-weight: 600; margin: 14px 0 6px; }
@@ -101,9 +103,9 @@ tbody th { font-weight: 600; }
   .actions > div { width: 100%; }
 }
 @media (prefers-color-scheme: dark) {
-  :root { background: #212327; color: #e5e5e5; color-scheme: dark; --surface: #292b30; --ink: #f0f0f0; --muted: #a6a8b0; --border: #3d3f46; --border-strong: #9aa0a6; --accent: #8a9bff; --wash: #303447; }
-  .error { color: #f5c4b9; background: #382a29; border-color: #6c4841; }
-  .device-status.online { color: #86d6b2; }
+  :root { background: #212327; color: #e5e5e5; color-scheme: dark; --surface: #292b30; --ink: #f0f0f0; --muted: #a6a8b0; --border: #3d3f46; --border-strong: #9aa0a6; --accent: #8a9bff; --wash: #303447; --success: #86d6b2; --warning: #d89614; --danger: #f5c4b9; }
+  .error { color: var(--danger); background: #382a29; border-color: #6c4841; }
+  .device-status.online { color: var(--success); }
 }
 
 /* Owner-only device actions: quiet button that still reads as destructive. */
