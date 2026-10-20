@@ -5,6 +5,7 @@
 ## Что понадобится
 
 - Собранный сервер (`pnpm --filter './apps/server' build`) и собранный плагин (`cd packages/plugin && pnpm build`).
+- Запуск сервера на loopback: заполнить `apps/server/.env` (`DSH_SERVER_ACCOUNT`, `DSH_SERVER_PASSWORD` не короче 12 символов, `DSH_SERVER_PUBLIC_URL`, `DSH_SERVER_DATA_FILE`) и выполнить `cd apps/server && node --env-file=.env dist/main.js`.
 - Два изолированных профиля DSH с плагином в `dsh.profile.bundles`, каждый в своём каталоге (см. [установку](fork-install.ru.md)).
 - Локальный сервер Ocean на loopback с тестовым аккаунтом.
 
@@ -12,16 +13,16 @@
 
 1. Поднимите локальный сервер на `127.0.0.1` с временным `state.json` и тестовым аккаунтом.
 2. В профиле Host задайте `role: host` и `serverUrl: http://127.0.0.1:<порт>`, запустите DSH.
-3. Через карточку «Настройка» (или `host.account.login` в control) войдите тестовыми данными.
+3. Войдите тестовыми данными через control-маршрут: `POST /ds-harness-remote/host.account.login` с `{email, password}` и cookie локальной сессии. Клик по форме в браузере этой проверкой не покрыт — UI-путь описан в [матрице](audit/02-matrix.ru.md) как «частично».
 4. В профиле Client задайте `role: client`, тот же `serverUrl`, запустите и войдите теми же данными.
-5. Откройте список устройств у Client — должен появиться Host.
+5. Запросите список устройств у Client: `POST /ds-harness-remote/devices` — должен появиться Host.
 6. Выйдите из аккаунта у Client.
 
 ## Результат прогона
 
 | Шаг | Результат |
 | --- | --- |
-| Вход Host через плагин | Успешно, устройство зарегистрировано (есть `deviceId`) |
+| Вход Host через плагин | Успешно; в статусе (`status`) появляется `deviceId`, то есть устройство зарегистрировано |
 | Вход Client через плагин | Успешно |
 | Список устройств у Client | Показывает зарегистрированный Host с `deviceId`, `name`, `platform`, `online`, `lastSeenAt`, версиями |
 | Выход | Успешно; после выхода в статусе нет аккаунта |
