@@ -23,8 +23,10 @@ const VIEWPORTS = [
   { name: 'narrow', width: 360, height: 900, scale: 2 },
   { name: 'tablet', width: 768, height: 1024, scale: 1 },
   { name: 'desktop', width: 1440, height: 900, scale: 1 },
-  // 200% zoom of a 1440 px screen is roughly 720 CSS px of usable width (UX-09).
-  { name: 'zoom200', width: 720, height: 900, scale: 1 },
+  // 200% browser zoom halves the layout viewport: 1440x900 becomes ~720x450 (UX-09).
+  // An 8 px scrollbar leaves ~712 px of usable width, so 705 is checked as well.
+  { name: 'zoom200', width: 720, height: 450, scale: 1 },
+  { name: 'zoom200scrolled', width: 705, height: 450, scale: 1 },
 ]
 
 async function loadPlaywright() {
@@ -149,11 +151,14 @@ try {
               .filter(node => node.disabled !== true)
               // A checkbox inside its label is tapped through the label.
               .map(node => ({ html: node.outerHTML.slice(0, 60), ...node.closest('label')?.getBoundingClientRect().toJSON() ?? node.getBoundingClientRect().toJSON() }))
-              .filter(rect => rect.height > 0 && rect.height < 32)
-              .map(rect => `${rect.html} (${Math.round(rect.height)}px)`),
+              // WCAG 2.2 requires 24x24 (2.5.8) and recommends 44x44 (2.5.5); this fork
+              // keeps a documented internal minimum of 32 in both dimensions.
+              .filter(rect => rect.width > 0 && rect.height > 0 && (rect.width < 32 || rect.height < 32))
+              .map(rect => `${rect.html} (${Math.round(rect.width)}x${Math.round(rect.height)}px)`),
           }
         })
         const where = `${file} @${viewport.name}`
+        const before = failures.length
         if (report.overflow) failures.push(`${where}: page scrolls horizontally (${report.scrollWidth} > ${report.clientWidth})`)
         if (report.sha.length !== expectedSha) failures.push(`${where}: expected ${expectedSha} SHA fields, found ${report.sha.length}`)
         for (const item of report.sha) {
@@ -169,7 +174,7 @@ try {
           await writeFile(new URL(`${file.replace(/\.html$/u, '')}-${viewport.name}.png`, mockups),
             await page.screenshot({ fullPage: true }))
         }
-        console.log(`ok   ${where.padEnd(42)} ${report.scrollWidth}/${report.clientWidth} px, ${report.sha.length} SHA, ${report.focusIssues.length} focus issues, ${report.smallTargets.length} small targets`)
+        console.log(`${failures.length === before ? 'ok  ' : 'FAIL'} ${where.padEnd(42)} ${report.scrollWidth}/${report.clientWidth} px, ${report.sha.length} SHA, ${report.focusIssues.length} focus issues, ${report.smallTargets.length} small targets`)
       } finally {
         await context.close()
       }
