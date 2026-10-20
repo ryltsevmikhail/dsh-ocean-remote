@@ -1730,7 +1730,6 @@ Minimum version required to store current data is: ` + bestVersion + `.
     thisMachineLocal: "This machine (Local)",
     currentDevice: "Current device",
     noRemoteHosts: "No authorized remote Host for this account.",
-    availableHosts: "Available Hosts",
     online: "Online",
     offline: "Offline",
     thisMachineHost: "This machine as Remote Host",
@@ -2039,7 +2038,6 @@ Minimum version required to store current data is: ` + bestVersion + `.
     thisMachineLocal: "\u6B64\u8BBE\u5907\uFF08\u672C\u5730\uFF09",
     currentDevice: "\u5F53\u524D\u8BBE\u5907",
     noRemoteHosts: "\u6B64\u8D26\u53F7\u6CA1\u6709\u5DF2\u6388\u6743\u7684\u8FDC\u7A0B Host\u3002",
-    availableHosts: "\u53EF\u7528\u7684 Host",
     online: "\u5728\u7EBF",
     offline: "\u79BB\u7EBF",
     thisMachineHost: "\u5C06\u6B64\u8BBE\u5907\u4F5C\u4E3A\u8FDC\u7A0B Host",
@@ -3618,7 +3616,6 @@ Minimum version required to store current data is: ` + bestVersion + `.
       // selector would restyle every control in the Harness UI.
       ":is(.dshRemotePage,.dshRemoteSettings,.dshRemoteConnectBar,.dshRemotePluginCard,.dshRemoteRoutePanel,.dshRemoteLoginServer) :is(button,input,select,textarea):focus-visible{outline:2px solid var(--dshRemoteAccent);outline-offset:2px}",
       // Notices and badges (design step 3): tone is carried by colour *and* text.
-      ".dshRemoteSectionLabel{margin:0;font-size:12px;line-height:1.5;color:var(--dshRemoteInkTertiary)}",
       ".dshRemoteBadge{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--dshRemoteBorder);border-radius:999px;padding:1px 8px;font-size:12px;line-height:1.6;color:var(--dshRemoteInkMuted);white-space:nowrap}",
       ".dshRemoteBadge.is-ok{color:var(--dshRemoteSuccess);border-color:color-mix(in srgb,var(--dshRemoteSuccess) 45%,transparent)}",
       ".dshRemoteConnectBar.isDrop{border-left:3px solid var(--dshRemoteWarning)}",
@@ -4362,7 +4359,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
                     React.createElement(
                       "div",
                       { className: "dshRemoteSectionTitle" },
-                      React.createElement("strong", null, t("chooseHost")),
+                      React.createElement("strong", { id: "dsh-remote-hosts-heading" }, t("chooseHost")),
                       status?.hostAuthorizationAvailable ? React.createElement(
                         "div",
                         { className: "dshRemoteHostControlToggle" },
@@ -4379,10 +4376,10 @@ Minimum version required to store current data is: ` + bestVersion + `.
                       connectedMenu
                     )
                   ),
-                  React.createElement("p", { className: "dshRemoteSectionLabel" }, t("availableHosts")),
                   React.createElement("div", {
                     className: `dshRemoteHostList${connectingHost === void 0 ? "" : " isCollapsed"}`,
-                    "aria-label": t("availableHosts"),
+                    role: "group",
+                    "aria-labelledby": "dsh-remote-hosts-heading",
                     "aria-busy": connectingHost === void 0 ? void 0 : !0
                   }, listedHosts.length === 0 ? React.createElement("p", null, t(busy ? "checkingConnection" : "noRemoteHosts")) : listedHosts.map((device) => React.createElement(
                     "button",

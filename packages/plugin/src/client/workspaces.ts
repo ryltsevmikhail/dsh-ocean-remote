@@ -1120,7 +1120,7 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
               selectedHost === undefined ? React.createElement('section', { className: 'dshRemoteHosts', 'aria-label': t('chooseHost') },
                 React.createElement('div', { className: 'dshRemoteSectionHeading' },
                   React.createElement('div', { className: 'dshRemoteSectionTitle' },
-                    React.createElement('strong', null, t('chooseHost')),
+                    React.createElement('strong', { id: 'dsh-remote-hosts-heading' }, t('chooseHost')),
                     status?.hostAuthorizationAvailable ? React.createElement('div', { className: 'dshRemoteHostControlToggle' },
                       React.createElement('span', null, t('allowControlDevice')),
                       React.createElement('input', {
@@ -1130,10 +1130,10 @@ export function createRemoteWorkspaceAction(React: ClientReact) {
                         onChange: (event: Event) => void setCurrentDeviceControl((event.target as HTMLInputElement).checked),
                       })) : null,
                     connectedMenu)),
-                React.createElement('p', { className: 'dshRemoteSectionLabel' }, t('availableHosts')),
                 React.createElement('div', {
                   className: `dshRemoteHostList${connectingHost === undefined ? '' : ' isCollapsed'}`,
-                  'aria-label': t('availableHosts'),
+                  role: 'group',
+                  'aria-labelledby': 'dsh-remote-hosts-heading',
                   'aria-busy': connectingHost === undefined ? undefined : true,
                 }, listedHosts.length === 0
                   ? React.createElement('p', null, busy ? t('checkingConnection') : t('noRemoteHosts'))
