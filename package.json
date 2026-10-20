@@ -167,6 +167,7 @@
   "scripts": {
     "check:contrast": "node scripts/check-contrast.mjs",
     "check:mockups": "node scripts/check-mockups.mjs",
-    "check:console": "node scripts/check-console.mjs"
+    "check:console": "node scripts/check-console.mjs",
+    "check:limits": "node scripts/check-rate-limits.mjs"
   }
 }
