@@ -232,6 +232,7 @@ export interface PluginSettingsView {
   deviceName: string
   writable: boolean
   applies: 'live' | 'restart'
+  running?: { role: PluginSettings['role']; serverUrl?: string }
   association?: PluginAssociation
   associations?: Partial<Record<'host' | 'client', PluginAssociation>>
   acpAvailability?: Record<string, boolean>

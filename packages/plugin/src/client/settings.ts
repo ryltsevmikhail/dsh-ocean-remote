@@ -540,6 +540,10 @@ export function createRemotePluginOptions(React: ClientReact) {
                 ? null
                 : React.createElement('p', { className: 'dshRemoteConnectionIssue', role: 'status' }, connectionErrorMessage(hostStatus.error, t)),
               !writable ? React.createElement('p', { className: 'dshRemoteError' }, t('readOnly')) : null,
+              settingsView?.running === undefined
+                ? null
+                : React.createElement('p', { className: 'dshRemoteNotice', role: 'status' },
+                  `${t('settingsRunning', { role: settingsView.running.role ?? '—', server: settingsView.running.serverUrl ?? '—' })}. ${t('settingsRestartNeeded')}`),
               React.createElement('div', { className: 'dshRemoteSettingsFooter' },
                 React.createElement('p', {
                   className: error !== undefined ? 'dshRemoteError' : 'dshRemoteNotice',

@@ -1697,6 +1697,8 @@ Minimum version required to store current data is: ` + bestVersion + `.
     connectedVia: "Connected \xB7 {transport}",
     roleSaved: "Role applied.",
     roleSavedRestart: "Role saved. Restart DSH to apply it.",
+    settingsRunning: "Running now: {role} \xB7 {server}",
+    settingsRestartNeeded: "The saved settings differ from the running process. Restart DSH to apply them.",
     remoteConfigLabel: "Remote settings",
     remoteConfigOpen: "Settings",
     closeAction: "Close",
@@ -2005,6 +2007,8 @@ Minimum version required to store current data is: ` + bestVersion + `.
     connectedVia: "\u5DF2\u8FDE\u63A5 \xB7 {transport}",
     roleSaved: "\u89D2\u8272\u5DF2\u5E94\u7528\u3002",
     roleSavedRestart: "\u89D2\u8272\u5DF2\u4FDD\u5B58\uFF0C\u91CD\u542F DSH \u540E\u751F\u6548\u3002",
+    settingsRunning: "\u5F53\u524D\u8FD0\u884C\uFF1A{role} \xB7 {server}",
+    settingsRestartNeeded: "\u5DF2\u4FDD\u5B58\u7684\u8BBE\u7F6E\u4E0E\u5F53\u524D\u8FD0\u884C\u7684\u8FDB\u7A0B\u4E0D\u540C\uFF0C\u91CD\u542F DSH \u540E\u751F\u6548\u3002",
     remoteConfigLabel: "\u8FDC\u7A0B\u8BBE\u7F6E",
     remoteConfigOpen: "\u8BBE\u7F6E",
     closeAction: "\u5173\u95ED",
@@ -3346,6 +3350,11 @@ Minimum version required to store current data is: ` + bestVersion + `.
             ),
             hostStatus?.error === void 0 || hostStatus.online ? null : React.createElement("p", { className: "dshRemoteConnectionIssue", role: "status" }, connectionErrorMessage(hostStatus.error, t)),
             writable ? null : React.createElement("p", { className: "dshRemoteError" }, t("readOnly")),
+            settingsView?.running === void 0 ? null : React.createElement(
+              "p",
+              { className: "dshRemoteNotice", role: "status" },
+              `${t("settingsRunning", { role: settingsView.running.role ?? "\u2014", server: settingsView.running.serverUrl ?? "\u2014" })}. ${t("settingsRestartNeeded")}`
+            ),
             React.createElement(
               "div",
               { className: "dshRemoteSettingsFooter" },

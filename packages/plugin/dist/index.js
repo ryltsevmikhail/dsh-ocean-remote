@@ -39068,11 +39068,14 @@ var PluginControlRuntime = class {
     const associations = await this.associations(config);
     const role = config.role === "client" ? "client" : "host";
     const association = associations[role];
+    const runningRole = this.config.role === "client" ? "client" : "host";
+    const runningDiffers = runningRole !== config.role || (this.config.serverUrl ?? "") !== (config.serverUrl ?? "");
     return {
       config,
       deviceName: hostname2(),
       writable: this.settings !== void 0,
       applies: "restart",
+      ...runningDiffers ? { running: { role: runningRole, serverUrl: this.config.serverUrl } } : {},
       associations,
       acpAvailability: Object.fromEntries((config.acp?.backends ?? []).map((item) => [item.id, backendCommandAvailable(item.id, item.command ?? "")])),
       ...association === void 0 ? {} : { association }

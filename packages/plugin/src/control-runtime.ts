@@ -23,6 +23,8 @@ export interface PluginSettingsView {
   deviceName: string
   writable: boolean
   applies: 'live' | 'restart'
+  /** What the running process uses; present only when it differs from the saved config. */
+  running?: { role: Config['role']; serverUrl?: string }
   association?: PluginAssociation
   associations: Partial<Record<'host' | 'client', PluginAssociation>>
   acpAvailability?: Record<string, boolean>
@@ -492,11 +494,14 @@ export class PluginControlRuntime {
     const associations = await this.associations(config)
     const role = config.role === 'client' ? 'client' : 'host'
     const association = associations[role]
+    const runningRole = this.config.role === 'client' ? 'client' : 'host'
+    const runningDiffers = runningRole !== config.role || (this.config.serverUrl ?? '') !== (config.serverUrl ?? '')
     return {
       config,
       deviceName: hostname(),
       writable: this.settings !== undefined,
       applies: 'restart',
+      ...(runningDiffers ? { running: { role: runningRole, serverUrl: this.config.serverUrl } } : {}),
       associations,
       acpAvailability: Object.fromEntries((config.acp?.backends ?? []).map(item => [item.id, backendCommandAvailable(item.id, item.command ?? '')])),
       ...(association === undefined ? {} : { association }),

@@ -22,7 +22,9 @@ const pending = (deviceId: string): PeerTrustView['pending'][number] => ({
   name: 'peer',
   platform: 'linux',
   origin: 'http://127.0.0.1',
+  epochId: 'epoch-1',
   generation: 'g1',
+  createdAt: Date.now(),
   fullFingerprint: 'A'.repeat(64),
   expiresAt: Date.now() + 60_000,
 })
