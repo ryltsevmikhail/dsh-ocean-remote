@@ -1,4 +1,4 @@
-import { mkdtemp, realpath, writeFile, rm, truncate } from 'node:fs/promises'
+import { mkdtemp, realpath, writeFile, rm, symlink, mkdir, truncate } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
@@ -90,6 +90,46 @@ describe('CodeX workspace and terminal bridge', () => {
       await expect(bridge.call(endpoint, { args: { workspaceFileScopeId: 'codex:one', path: 'oversized.bin' } }, signal)).rejects.toMatchObject({ code: 'CODEX_WORKSPACE_TOO_LARGE' })
     }
     await bridge.closeAll(); await rm(root, { recursive: true, force: true }); await rm(other, { recursive: true, force: true })
+  })
+
+  it('denies escapes through absolute paths, symlinks and sibling prefixes', async () => {
+    const base = await mkdtemp(join(tmpdir(), 'dsh-boundary-'))
+    const root = join(base, 'ws')
+    const sibling = join(base, 'ws-evil')
+    await mkdir(root); await mkdir(sibling)
+    await writeFile(join(root, 'inside.txt'), 'inside')
+    await writeFile(join(sibling, 'secret.txt'), 'secret')
+    // A link inside the workspace must not become a window to the outside.
+    await symlink(join(sibling, 'secret.txt'), join(root, 'link-out.txt'))
+    await symlink(sibling, join(root, 'link-dir'))
+    const bridge = new CodexWorkspaceBridge(async () => root, () => true)
+    try {
+      await expect(bridge.call('workspaceFiles/read', { args: { workspaceFileScopeId: 'codex:one', path: 'inside.txt' } }, signal))
+        .resolves.toMatchObject({ ok: true })
+      const denied = [
+        // Absolute path outside the workspace.
+        join(sibling, 'secret.txt'),
+        // Symlink to a file outside.
+        'link-out.txt',
+        // Symlink to a directory outside.
+        'link-dir/secret.txt',
+        // Sibling directory that shares the workspace prefix.
+        '../ws-evil/secret.txt',
+      ]
+      for (const path of denied) {
+        await expect(bridge.call('workspaceFiles/read', { args: { workspaceFileScopeId: 'codex:one', path } }, signal))
+          .rejects.toMatchObject({ code: 'CODEX_WORKSPACE_PATH_DENIED' })
+      }
+      // A directory endpoint must not accept a regular file, and vice versa.
+      await expect(bridge.call('workspaceFiles/list', { args: { workspaceFileScopeId: 'codex:one', path: 'inside.txt' } }, signal))
+        .rejects.toMatchObject({ code: 'CODEX_WORKSPACE_PATH_DENIED' })
+      // Reading a directory is refused as well, with its own stable code.
+      await expect(bridge.call('workspaceFiles/read', { args: { workspaceFileScopeId: 'codex:one', path: '.' } }, signal))
+        .rejects.toMatchObject({ code: 'CODEX_WORKSPACE_INVALID_PATH' })
+    } finally {
+      await bridge.closeAll()
+      await rm(base, { recursive: true, force: true })
+    }
   })
 
   it('returns stable errors for invalid or cwd-less threads', async () => {
