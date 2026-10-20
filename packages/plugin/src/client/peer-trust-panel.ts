@@ -144,7 +144,7 @@ export function createPeerTrustPanel(React: ClientReact) {
                 'aria-label': `Полный SHA-256: ${role} ${item.deviceId}`,
                 onChange: (event: Event) => update({ fingerprint: (event.target as HTMLInputElement).value }),
               })),
-              h('button', { type: 'button', disabled: disabled || !draft.checked || !fullSha256.test(draft.fingerprint) || draft.fingerprint !== item.fullFingerprint, onClick: () => void mutate(role, item.deviceId, item.generation, item.fullFingerprint, validView!.epochId, true) }, 'Подтвердить ключ'),
+              h('button', { type: 'button', 'data-variant': 'primary', disabled: disabled || !draft.checked || !fullSha256.test(draft.fingerprint) || draft.fingerprint !== item.fullFingerprint, onClick: () => void mutate(role, item.deviceId, item.generation, item.fullFingerprint, validView!.epochId, true) }, 'Подтвердить ключ'),
               h('button', { type: 'button', disabled: busy || !writable, onClick: () => void mutate(role, item.deviceId, item.generation, item.fullFingerprint, validView!.epochId, false) }, 'Отклонить'))
           }),
           h('h4', null, 'Сохранённые ключи'),
@@ -153,7 +153,7 @@ export function createPeerTrustPanel(React: ClientReact) {
             h('code', { style: { overflowWrap: 'anywhere' } }, pin.fullFingerprint),
             h('p', null, pin.provenance === 'manual' ? 'Подтверждён вручную.' : 'Legacy: происхождение подтверждения неизвестно; не считается ручным подтверждением.'),
             h('button', {
-              type: 'button', disabled: busy || !writable || validView?.available !== true || validView?.role !== role,
+              type: 'button', 'data-variant': 'danger', disabled: busy || !writable || validView?.available !== true || validView?.role !== role,
               'aria-label': `Снять доверие: ${role} ${pin.deviceId}`,
               onClick: () => void revoke(role, pin.deviceId, pin.name),
             }, 'Снять доверие'))))
